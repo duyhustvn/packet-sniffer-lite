@@ -28,6 +28,13 @@ Raw packet sockets require root or `CAP_NET_RAW`.
 sudo ./packet-sniffer-lite -i eth0
 ```
 
+Use verbose mode when debugging capture. It prints every parsed TCP segment
+with payload, even when no hostname is found:
+
+```sh
+sudo ./packet-sniffer-lite -v -i eth0
+```
+
 Without `-i`, it listens on all packet-visible interfaces:
 
 ```sh
@@ -40,6 +47,19 @@ Generate quick test traffic:
 curl http://example.com/
 curl https://example.com/
 ```
+
+If you are on WSL, generate traffic from another WSL shell and bypass proxy
+environment variables during testing:
+
+```sh
+curl --noproxy '*' http://example.com/
+curl --noproxy '*' https://example.com/
+```
+
+If `-v` shows TCP packets but no `HTTP` or `TLS-SNI` line, the capture works
+and the remaining issue is parsing or traffic shape. Common causes are proxy
+ports, TCP segmentation, HTTPS without plaintext SNI, or testing traffic from
+Windows apps instead of WSL processes.
 
 Example output:
 

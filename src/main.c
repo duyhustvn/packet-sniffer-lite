@@ -25,8 +25,8 @@ static void on_signal(int signo)
 
 static void usage(const char *prog)
 {
-    fprintf(stderr, "Usage: %s [-i interface]\n", prog);
-    fprintf(stderr, "Example: sudo %s -i eth0\n", prog);
+    fprintf(stderr, "Usage: %s [-v] [-i interface]\n", prog);
+    fprintf(stderr, "Example: sudo %s -v -i eth0\n", prog);
 }
 
 static int bind_interface(int fd, const char *ifname)
@@ -57,12 +57,16 @@ static int bind_interface(int fd, const char *ifname)
 int main(int argc, char **argv)
 {
     const char *ifname = NULL;
+    bool verbose = false;
 
     int opt;
-    while ((opt = getopt(argc, argv, "hi:")) != -1) {
+    while ((opt = getopt(argc, argv, "hi:v")) != -1) {
         switch (opt) {
         case 'i':
             ifname = optarg;
+            break;
+        case 'v':
+            verbose = true;
             break;
         case 'h':
         default:
@@ -104,6 +108,13 @@ int main(int argc, char **argv)
         struct packet_view pkt;
         if (!parse_packet(buffer, (size_t)nread, &pkt) || pkt.payload_len == 0) {
             continue;
+        }
+
+        if (verbose) {
+            fprintf(stderr, "TCP %s:%u -> %s:%u payload=%zu\n",
+                    pkt.src_ip, pkt.src_port,
+                    pkt.dst_ip, pkt.dst_port,
+                    pkt.payload_len);
         }
 
         char host[HOST_MAX_LEN];
