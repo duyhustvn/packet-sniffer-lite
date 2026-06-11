@@ -1,0 +1,10 @@
+services:
+  packet-sniffer-lite:
+    build: .
+    image: packet-sniffer-lite:local
+    network_mode: host
+    cap_add:
+      - NET_RAW
+    stdin_open: true
+    tty: true
+    command: ["-v"]
