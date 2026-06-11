@@ -14,12 +14,19 @@
 
 static bool read_u16(const uint8_t *buf, size_t len, size_t off, uint16_t *out)
 {
+    // A uint16_t needs exactly 2 bytes. Reject the read if the requested
+    // offset would go past the end of the captured packet buffer.
     if (off + 2 > len) {
         return false;
     }
 
+    // Copy the bytes instead of casting buf + off to uint16_t * directly:
+    // packet data may not be aligned for a 16-bit read on every CPU.
     uint16_t tmp;
     memcpy(&tmp, buf + off, sizeof(tmp));
+
+    // Packet fields are stored in network byte order (big-endian). 
+    // Convert them to the host CPU's byte order before returning the value.
     *out = ntohs(tmp);
     return true;
 }
@@ -181,6 +188,8 @@ bool parse_packet(const uint8_t *frame, size_t frame_len, struct packet_view *ou
         return false;
     }
 
+    // VLAN frames store the real payload EtherType after each 4-byte VLAN tag.
+    // Keep skipping stacked VLAN tags until ether_type points to IPv4/IPv6/etc.
     while (ether_type == ETH_P_8021Q || ether_type == ETH_P_8021AD) {
         if (!read_u16(frame, frame_len, off + 2, &ether_type)) {
             return false;
