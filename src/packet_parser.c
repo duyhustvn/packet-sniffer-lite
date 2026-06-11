@@ -174,6 +174,29 @@ static bool parse_ipv6(const uint8_t *packet, size_t packet_len, struct packet_v
     return parse_tcp(packet, full_len, off, out);
 }
 
+// Tong quan:
+// Parse mot Ethernet frame da capture va chi chap nhan packet TCP tren IPv4/IPv6.
+// Ham nay bo qua Ethernet header, xu ly them VLAN tag neu co, sau do dua phan
+// IP packet cho parse_ipv4() hoac parse_ipv6(). Neu packet khong phai IPv4/IPv6,
+// khong phai TCP, bi cat ngan, fragment, hoac format khong hop le thi tra ve false.
+//
+// Arguments:
+// - frame: con tro toi byte dau tien cua Ethernet frame:
+//   [dst mac][src mac][EtherType/VLAN][...][IP packet][TCP segment][payload].
+// - frame_len: so byte hop le co the doc tu frame.
+// - out: noi ham ghi ket qua parse duoc. Ham se reset struct nay ve 0 truoc khi doc.
+//
+// Output khi tra ve true:
+// - out->ip_version: 4 hoac 6.
+// - out->src_ip / out->dst_ip: dia chi IP dang chuoi.
+// - out->src_port / out->dst_port: TCP source/destination port.
+// - out->payload / out->payload_len: con tro va do dai phan data sau TCP header.
+//
+// Vi du:
+// Neu frame la Ethernet + IPv4 + TCP + HTTP request, ham tra ve true va out->payload
+// se tro den byte dau cua HTTP request. Neu frame co VLAN:
+// [dst][src][0x8100][VLAN tag][0x0800][IPv4...], ham se bo qua VLAN tag de thay
+// real EtherType 0x0800 roi moi parse IPv4.
 bool parse_packet(const uint8_t *frame, size_t frame_len, struct packet_view *out)
 {
     memset(out, 0, sizeof(*out));
