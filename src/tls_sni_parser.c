@@ -50,12 +50,47 @@ static bool copy_hostname(const uint8_t *buf, size_t len, size_t off,
     return true;
 }
 
+// Tong quan ve payload TLS ma ham nay mong doi:
+// payload tro toi byte dau tien SAU TCP header, tuc TCP payload. Voi HTTPS,
+// TCP payload thuong bat dau bang mot TLS record:
+//
+// [TLS record header 5 bytes][TLS record body...]
+//
+// TLS record header:
+// - content_type: 1 byte. Gia tri 22 (0x16) nghia la Handshake.
+// - record_version: 2 bytes. Vi du 0x0303.
+// - record_len: 2 bytes. Do dai record body, KHONG tinh 5 byte header.
+//
+// Record body cua ClientHello lai bat dau bang TLS handshake message:
+// [handshake_type 1 byte][handshake_len 3 bytes][ClientHello body...]
+//
+// - handshake_type = 1 nghia la ClientHello.
+// - handshake_len la do dai ClientHello body, KHONG tinh 4 byte handshake header.
+//
+// ClientHello body co cac field theo thu tu:
+// [version 2][random 32][session_id_len 1][session_id...]
+// [cipher_suites_len 2][cipher_suites...]
+// [compression_methods_len 1][compression_methods...]
+// [extensions_len 2][extensions...]
+//
+// Moi extension co dang:
+// [ext_type 2][ext_len 2][ext_data...]
+//
+// SNI la extension type 0. Ben trong SNI extension:
+// [server_name_list_len 2]
+// [name_type 1][name_len 2][hostname bytes...]
+//
+// Ham nay tim name_type = 0 (host_name), copy hostname vao host va tra ve true.
+// Neu payload khong phai TLS ClientHello, bi cat giua chung, hoac khong co SNI
+// thi tra ve false. Neu TLS record bi tach qua nhieu TCP segment, payload hien
+// tai co the chua du record_len va ham cung se tra ve false.
 bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host, size_t host_len)
 {
     if (payload_len < 5 || host_len == 0) {
         return false;
     }
 
+    // TLS record header starts at payload[0].
     size_t off = 0;
     uint8_t content_type;
     if (!get_u8(payload, payload_len, &off, &content_type) || content_type != 22) {
@@ -75,6 +110,7 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host, siz
     }
     size_t record_end = off + record_len;
 
+    // The record body must start with a ClientHello handshake message.
     uint8_t handshake_type;
     if (!get_u8(payload, record_end, &off, &handshake_type) || handshake_type != 1) {
         return false;
@@ -93,28 +129,33 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host, siz
     }
     size_t handshake_end = off + handshake_len;
 
+    // Skip ClientHello legacy_version and random. They are not needed for SNI.
     if (!skip_bytes(handshake_end, &off, 2) || !skip_bytes(handshake_end, &off, 32)) {
         return false;
     }
 
+    // Skip variable-length session_id.
     uint8_t session_id_len;
     if (!get_u8(payload, handshake_end, &off, &session_id_len) ||
         !skip_bytes(handshake_end, &off, session_id_len)) {
         return false;
     }
 
+    // Skip variable-length cipher_suites list.
     uint16_t cipher_suites_len;
     if (!get_u16(payload, handshake_end, &off, &cipher_suites_len) ||
         !skip_bytes(handshake_end, &off, cipher_suites_len)) {
         return false;
     }
 
+    // Skip variable-length compression_methods list.
     uint8_t compression_methods_len;
     if (!get_u8(payload, handshake_end, &off, &compression_methods_len) ||
         !skip_bytes(handshake_end, &off, compression_methods_len)) {
         return false;
     }
 
+    // The SNI is stored inside ClientHello extensions.
     uint16_t extensions_len;
     if (!get_u16(payload, handshake_end, &off, &extensions_len)) {
         return false;
@@ -125,6 +166,7 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host, siz
 
     size_t extensions_end = off + extensions_len;
     while (off + 4 <= extensions_end) {
+        // Each extension has a 4-byte header followed by ext_len bytes of data.
         uint16_t ext_type;
         uint16_t ext_len;
         if (!get_u16(payload, extensions_end, &off, &ext_type) ||
@@ -136,6 +178,8 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host, siz
         }
 
         if (ext_type == 0) {
+            // Extension type 0 is server_name. Look for a host_name entry
+            // and copy its hostname bytes into the caller's host buffer.
             size_t sni_off = off;
             uint16_t list_len;
             if (!get_u16(payload, off + ext_len, &sni_off, &list_len) ||
