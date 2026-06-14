@@ -14,6 +14,10 @@ HTTPS payload is encrypted, so this program does not read HTTP requests inside
 TLS. It only extracts the hostname from the plaintext SNI extension when the
 client sends it. Encrypted ClientHello can hide this value.
 
+## Docs
+
+- [TLS ClientHello SNI payload walkthrough](docs/tls-sni-payload.md)
+
 ## Build
 
 ```sh
