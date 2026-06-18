@@ -211,15 +211,22 @@ bool parse_packet(const uint8_t *frame, size_t frame_len, struct packet_view *ou
         return false;
     }
 
-    // Normal Ethernet frames store the payload EtherType at bytes 12-13.
-    // Ethernet header:
-    // [dst mac][src mac][EtherType][payload]
-    // VLAN frames use that field for the VLAN marker instead:
-    // [dst mac][src mac][0x8100/0x88a8][4-byte VLAN tag][real EtherType][payload].
-    // ETH_P_8021Q   // 0x8100, VLAN thường 
-    // ETH_P_8021AD  // 0x88A8, QinQ / stacked VLAN
-    // Keep skipping VLAN tags until ether_type is the real payload type, such as
-    // IPv4 or IPv6, not the VLAN marker.
+    // Normal Ethernet frames store the payload EtherType at bytes 12-13:
+    // [dst mac 6][src mac 6][EtherType 2][payload].
+    //
+    // VLAN frames use bytes 12-13 as the VLAN TPID instead of the real
+    // payload EtherType. Each VLAN tag is 4 bytes:
+    // [TPID 2][TCI 2].
+    //
+    // 0x8100 and 0x88A8 are both 2-byte TPID values; the tag length is still
+    // 4 bytes for either value. With one VLAN tag:
+    // [dst][src][TPID 0x8100/0x88a8][TCI][real EtherType][payload].
+    //
+    // With stacked VLAN / QinQ, there can be multiple 4-byte tags:
+    // [dst][src][TPID][TCI][TPID][TCI][real EtherType][payload].
+    //
+    // Keep skipping VLAN tags until ether_type is the real payload type, such
+    // as IPv4 or IPv6, not another VLAN TPID.
     while (ether_type == ETH_P_8021Q || ether_type == ETH_P_8021AD) {
         if (!read_u16(frame, frame_len, off + 2, &ether_type)) {
             return false;
