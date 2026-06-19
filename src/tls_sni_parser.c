@@ -94,6 +94,7 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host, siz
     size_t off = 0;
     uint8_t content_type;
     if (!get_u8(payload, payload_len, &off, &content_type) || content_type != 22) {
+        // content_type: 22 means handshake
         return false;
     }
 
@@ -105,6 +106,12 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host, siz
     }
     (void)record_version;
 
+    // off is now 5, right after the TLS record header:
+    // [content_type 1][legacy_version 2][record_len 2].
+    // record_len is the TLS record body length, not the current TCP payload
+    // length. If off + record_len is larger than payload_len, the current TCP
+    // payload does not contain the full TLS record yet, usually because the TLS
+    // record was split across multiple TCP segments.
     if (off + record_len > payload_len || record_len < 4) {
         return false;
     }
