@@ -112,6 +112,8 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host, siz
     // length. If off + record_len is larger than payload_len, the current TCP
     // payload does not contain the full TLS record yet, usually because the TLS
     // record was split across multiple TCP segments.
+    // For a handshake record, the body must contain at least the 4-byte
+    // handshake header: [handshake_type 1][handshake_len 3].
     if (off + record_len > payload_len || record_len < 4) {
         return false;
     }
