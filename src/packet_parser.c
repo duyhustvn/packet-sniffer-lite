@@ -75,6 +75,21 @@ static bool skip_ipv6_extensions(const uint8_t *packet, size_t packet_len,
     }
 }
 
+// Parse a TCP segment inside an already parsed IP packet.
+//
+// Arguments:
+// - packet: pointer to the first byte of the containing IP packet. 
+//   The TCP header is not necessarily at packet[0]; its position is given by tcp_off.
+// - packet_len: length of the containing IP packet. IPv4 passes Total Length;
+//   IPv6 passes the IPv6 header plus Payload Length.
+// - tcp_off: byte offset from packet to the start of the TCP header.
+// - out: destination for the parsed TCP ports and TCP payload pointer/length.
+//
+// Output:
+// - Returns true when the TCP header is complete, has a valid header length,
+//   and out has been filled with ports plus payload location.
+// - Returns false when the TCP header is truncated or has an invalid data
+//   offset/header length.
 static bool parse_tcp(const uint8_t *packet, size_t packet_len, size_t tcp_off,
                       struct packet_view *out)
 {
@@ -101,6 +116,22 @@ static bool parse_tcp(const uint8_t *packet, size_t packet_len, size_t tcp_off,
     return true;
 }
 
+// Parse an IPv4 packet and only accept TCP.
+//
+// Arguments:
+// - packet: pointer to the first byte of the IPv4 packet, which is the
+//   Ethernet payload after parse_packet() skips the Ethernet/VLAN header.
+// - packet_len: number of readable bytes starting at packet. This may be
+//   larger than the IPv4 Total Length when the Ethernet frame has padding, so
+//   the function uses ip->tot_len to limit the real IPv4 packet.
+// - out: destination for the parsed result: IP version, IP addresses, TCP
+//   ports, and TCP payload when the packet is valid.
+//
+// Output:
+// - Returns true when this is a valid, non-fragmented IPv4 TCP packet and the
+//   TCP header/payload can be parsed.
+// - Returns false when the packet is truncated, is not IPv4/TCP, is an IPv4
+//   fragment, or has invalid length/header fields.
 static bool parse_ipv4(const uint8_t *packet, size_t packet_len, struct packet_view *out)
 {
     if (packet_len < sizeof(struct iphdr)) {
