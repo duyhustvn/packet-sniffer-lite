@@ -1,4 +1,5 @@
-#include "sniffer.h"
+#include "http_parser.h"
+#include "tls_sni_parser.h"
 
 #include <stdio.h>
 #include <string.h>

@@ -21,7 +21,14 @@ client sends it. Encrypted ClientHello can hide this value.
 ## Build
 
 ```sh
-make
+cmake -S . -B build
+cmake --build build
+```
+
+Run parser tests:
+
+```sh
+ctest --test-dir build --output-on-failure
 ```
 
 ## Run
@@ -29,20 +36,20 @@ make
 Raw packet sockets require root or `CAP_NET_RAW`.
 
 ```sh
-sudo ./packet-sniffer-lite -i eth0
+sudo ./build/packet-sniffer-lite -i eth0
 ```
 
 Use verbose mode when debugging capture. It prints every parsed TCP segment
 with payload, even when no hostname is found:
 
 ```sh
-sudo ./packet-sniffer-lite -v -i eth0
+sudo ./build/packet-sniffer-lite -v -i eth0
 ```
 
 Without `-i`, it listens on all packet-visible interfaces:
 
 ```sh
-sudo ./packet-sniffer-lite
+sudo ./build/packet-sniffer-lite
 ```
 
 Generate quick test traffic:

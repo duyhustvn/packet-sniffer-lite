@@ -1,6 +1,8 @@
 #define _GNU_SOURCE
 
-#include "sniffer.h"
+#include "http_parser.h"
+#include "packet_parser.h"
+#include "tls_sni_parser.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
