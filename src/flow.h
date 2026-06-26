@@ -5,8 +5,8 @@
 
 typedef struct {
     uint8_t ip_version;
-    char src_ip[46];
-    char dst_ip[46];
+    uint32_t src_ip;
+    uint32_t dst_ip;
     uint16_t src_port;
     uint16_t dst_port;
 } FlowKey;
@@ -23,5 +23,13 @@ typedef struct {
 
     UT_hash_handle hh;
 } Flow;
+
+void construct_key(
+    FlowKey *key, 
+    uint8_t ip_version, 
+    uint32_t src_ip, 
+    uint32_t dst_ip, 
+    uint16_t src_port, 
+    uint16_t dst_port);
 
 #endif // FLOW_H

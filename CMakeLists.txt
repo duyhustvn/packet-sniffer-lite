@@ -13,6 +13,7 @@ add_library(sniffer_parsers
     src/packet_parser.c
     src/http_parser.c
     src/tls_sni_parser.c
+    src/flow.c
 )
 target_include_directories(sniffer_parsers
     PUBLIC
