@@ -14,6 +14,7 @@ add_library(sniffer_parsers
     src/http_parser.c
     src/tls_sni_parser.c
     src/flow.c
+    src/util.c
 )
 target_include_directories(sniffer_parsers
     PUBLIC
@@ -56,6 +57,27 @@ target_compile_options(test_parsers
         -Wpedantic
 )
 
+add_executable(test_flow
+    tests/test_flow.c
+    tests/unity/unity.c
+)
+target_include_directories(test_flow
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/unity
+)
+target_link_libraries(test_flow
+    PRIVATE
+        sniffer_parsers
+)
+target_compile_options(test_flow
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+)
+
 add_test(NAME parsers COMMAND test_parsers)
+add_test(NAME flow COMMAND test_flow)
 
 install(TARGETS packet-sniffer-lite RUNTIME DESTINATION bin)

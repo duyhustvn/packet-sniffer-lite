@@ -4,7 +4,7 @@
 void construct_key(FlowKey *key, uint8_t ip_version, uint32_t src_ip,
                    uint32_t dst_ip, uint16_t src_port, uint16_t dst_port) {
   // Xóa sạch bộ nhớ để tránh lỗi padding
-  memset(&key, 0, sizeof(key));
+  memset(key, 0, sizeof(FlowKey));
 
   key->ip_version = ip_version;
   key->src_ip = src_ip;
@@ -44,6 +44,8 @@ void upsert(FlowKey *key, Flow **flows, uint8_t *data, size_t data_len,
     if (f == NULL) {
       return;
     }
+    memset(f, 0, sizeof(Flow));
+    memcpy(&f->key, key, sizeof(FlowKey));
     memcpy(f->buffer, data, data_len);
     f->buffer_len = data_len;
     f->created_at_ms = now_ms();
@@ -57,7 +59,6 @@ void upsert(FlowKey *key, Flow **flows, uint8_t *data, size_t data_len,
 
       if (f->expected_payload_len == data_len) {
         f->complete = true;
-        return;
       }
     }
 
