@@ -1,4 +1,4 @@
-#include "sniffer_types.h"
+#include "packet.h"
 #include <arpa/inet.h>
 #include <stdio.h>
 

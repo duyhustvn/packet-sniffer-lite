@@ -1,5 +1,5 @@
-#ifndef SNIFFER_TYPES_H
-#define SNIFFER_TYPES_H
+#ifndef PACKET_H
+#define PACKET_H
 
 #include <stddef.h>
 #include <stdint.h>
