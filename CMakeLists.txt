@@ -11,6 +11,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 add_library(sniffer_parsers
     src/packet_parser.c
+    src/packet.c
     src/http_parser.c
     src/tls_sni_parser.c
     src/flow.c

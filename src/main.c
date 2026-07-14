@@ -2,6 +2,7 @@
 
 #include "http_parser.h"
 #include "packet_parser.h"
+#include "sniffer_types.h"
 #include "tls_sni_parser.h"
 
 #include <arpa/inet.h>
@@ -19,127 +20,122 @@
 
 static volatile sig_atomic_t keep_running = 1;
 
-static void on_signal(int signo)
-{
-    (void)signo;
-    keep_running = 0;
+static void on_signal(int signo) {
+  (void)signo;
+  keep_running = 0;
 }
 
-static void usage(const char *prog)
-{
-    fprintf(stderr, "Usage: %s [-v] [-i interface]\n", prog);
-    fprintf(stderr, "Example: sudo %s -v -i eth0\n", prog);
+static void usage(const char *prog) {
+  fprintf(stderr, "Usage: %s [-v] [-i interface]\n", prog);
+  fprintf(stderr, "Example: sudo %s -v -i eth0\n", prog);
 }
 
-static int bind_interface(int fd, const char *ifname)
-{
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof(ifr));
-    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ifname);
+static int bind_interface(int fd, const char *ifname) {
+  struct ifreq ifr;
+  memset(&ifr, 0, sizeof(ifr));
+  snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ifname);
 
-    if (ioctl(fd, SIOCGIFINDEX, &ifr) == -1) {
-        perror("ioctl(SIOCGIFINDEX)");
-        return -1;
-    }
+  if (ioctl(fd, SIOCGIFINDEX, &ifr) == -1) {
+    perror("ioctl(SIOCGIFINDEX)");
+    return -1;
+  }
 
-    struct sockaddr_ll addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sll_family = AF_PACKET;
-    addr.sll_protocol = htons(ETH_P_ALL);
-    addr.sll_ifindex = ifr.ifr_ifindex;
+  struct sockaddr_ll addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sll_family = AF_PACKET;
+  addr.sll_protocol = htons(ETH_P_ALL);
+  addr.sll_ifindex = ifr.ifr_ifindex;
 
-    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-        perror("bind(AF_PACKET)");
-        return -1;
-    }
+  if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+    perror("bind(AF_PACKET)");
+    return -1;
+  }
 
-    return 0;
+  return 0;
 }
 
-int main(int argc, char **argv)
-{
-    const char *ifname = NULL;
-    bool verbose = false;
+int main(int argc, char **argv) {
+  const char *ifname = NULL;
+  bool verbose = false;
 
-    int opt;
-    while ((opt = getopt(argc, argv, "hi:v")) != -1) {
-        switch (opt) {
-        case 'i':
-            ifname = optarg;
-            break;
-        case 'v':
-            verbose = true;
-            break;
-        case 'h':
-        default:
-            usage(argv[0]);
-            return opt == 'h' ? 0 : 1;
-        }
+  int opt;
+  while ((opt = getopt(argc, argv, "hi:v")) != -1) {
+    switch (opt) {
+    case 'i':
+      ifname = optarg;
+      break;
+    case 'v':
+      verbose = true;
+      break;
+    case 'h':
+    default:
+      usage(argv[0]);
+      return opt == 'h' ? 0 : 1;
     }
+  }
 
-    signal(SIGINT, on_signal);
-    signal(SIGTERM, on_signal);
+  signal(SIGINT, on_signal);
+  signal(SIGTERM, on_signal);
 
-    int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-    if (fd == -1) {
-        perror("socket(AF_PACKET)");
-        fprintf(stderr, "Hint: run with sudo or grant CAP_NET_RAW.\n");
-        return 1;
-    }
+  int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+  if (fd == -1) {
+    perror("socket(AF_PACKET)");
+    fprintf(stderr, "Hint: run with sudo or grant CAP_NET_RAW.\n");
+    return 1;
+  }
 
-    if (ifname != NULL && bind_interface(fd, ifname) == -1) {
-        close(fd);
-        return 1;
-    }
-
-    fprintf(stderr, "Listening%s%s. Press Ctrl-C to stop.\n",
-            ifname ? " on " : "", ifname ? ifname : "");
-
-    uint8_t buffer[65536];
-    while (keep_running) {
-        ssize_t nread = recvfrom(fd, buffer, sizeof(buffer), 0, NULL, NULL);
-        if (nread == -1) {
-            if (errno == EINTR) {
-                continue;
-            }
-            perror("recvfrom");
-            close(fd);
-            return 1;
-        }
-
-        struct packet_view pkt;
-        if (!parse_packet(buffer, (size_t)nread, &pkt) || pkt.payload_len == 0) {
-            continue;
-        }
-
-        if (verbose) {
-            fprintf(stderr, "TCP %s:%u -> %s:%u payload=%zu\n",
-                    pkt.src_ip, pkt.src_port,
-                    pkt.dst_ip, pkt.dst_port,
-                    pkt.payload_len);
-        }
-
-        char host[HOST_MAX_LEN];
-        const char *kind = NULL;
-
-        if ((pkt.dst_port == 80 || pkt.src_port == 80) &&
-            extract_http_host(pkt.payload, pkt.payload_len, host, sizeof(host))) {
-            kind = "HTTP";
-        } else if ((pkt.dst_port == 443 || pkt.src_port == 443) &&
-                   extract_tls_sni(pkt.payload, pkt.payload_len, host, sizeof(host))) {
-            kind = "TLS-SNI";
-        }
-
-        if (kind != NULL) {
-            printf("%s %s:%u -> %s:%u host=%s\n",
-                   kind,
-                   pkt.src_ip, pkt.src_port,
-                   pkt.dst_ip, pkt.dst_port,
-                   host);
-            fflush(stdout);
-        }
-    }
-
+  if (ifname != NULL && bind_interface(fd, ifname) == -1) {
     close(fd);
-    return 0;
+    return 1;
+  }
+
+  fprintf(stderr, "Listening%s%s. Press Ctrl-C to stop.\n",
+          ifname ? " on " : "", ifname ? ifname : "");
+
+  uint8_t buffer[65536];
+  while (keep_running) {
+    ssize_t nread = recvfrom(fd, buffer, sizeof(buffer), 0, NULL, NULL);
+    if (nread == -1) {
+      if (errno == EINTR) {
+        continue;
+      }
+      perror("recvfrom");
+      close(fd);
+      return 1;
+    }
+
+    struct packet_view pkt;
+    if (!parse_packet(buffer, (size_t)nread, &pkt) || pkt.payload_len == 0) {
+      continue;
+    }
+
+    if (verbose) {
+      // fprintf(stderr, "TCP %s:%u -> %s:%u payload=%zu\n",
+      //         pkt.src_ip, pkt.src_port,
+      //         pkt.dst_ip, pkt.dst_port,
+      //         pkt.payload_len);
+      print_packet(&pkt);
+    }
+
+    char host[HOST_MAX_LEN];
+    const char *kind = NULL;
+
+    if ((pkt.dst_port == 80 || pkt.src_port == 80) &&
+        extract_http_host(pkt.payload, pkt.payload_len, host, sizeof(host))) {
+      kind = "HTTP";
+    } else if ((pkt.dst_port == 443 || pkt.src_port == 443) &&
+               extract_tls_sni(pkt.payload, pkt.payload_len, host,
+                               sizeof(host))) {
+      kind = "TLS-SNI";
+    }
+
+    if (kind != NULL) {
+      printf("%s %s:%u -> %s:%u host=%s\n", kind, pkt.src_ip, pkt.src_port,
+             pkt.dst_ip, pkt.dst_port, host);
+      fflush(stdout);
+    }
+  }
+
+  close(fd);
+  return 0;
 }
