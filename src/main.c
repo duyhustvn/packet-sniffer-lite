@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include "flow.h"
 #include "http_parser.h"
 #include "packet.h"
 #include "packet_parser.h"
@@ -93,6 +94,7 @@ int main(int argc, char **argv) {
           ifname ? " on " : "", ifname ? ifname : "");
 
   uint8_t buffer[65536];
+  Flow *flows = init_flow();
   while (keep_running) {
     ssize_t nread = recvfrom(fd, buffer, sizeof(buffer), 0, NULL, NULL);
     if (nread == -1) {
@@ -105,15 +107,12 @@ int main(int argc, char **argv) {
     }
 
     struct packet_view pkt;
-    if (!parse_packet(buffer, (size_t)nread, &pkt) || pkt.payload_len == 0) {
+    if (!parse_packet(buffer, (size_t)nread, &pkt, flows) ||
+        pkt.payload_len == 0) {
       continue;
     }
 
     if (verbose) {
-      // fprintf(stderr, "TCP %s:%u -> %s:%u payload=%zu\n",
-      //         pkt.src_ip, pkt.src_port,
-      //         pkt.dst_ip, pkt.dst_port,
-      //         pkt.payload_len);
       print_packet(&pkt);
     }
 

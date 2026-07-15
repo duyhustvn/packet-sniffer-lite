@@ -1,6 +1,14 @@
 #include "flow.h"
 #include "util.h"
 
+Flow *init_flow() {
+  Flow *flow = (Flow *)malloc(sizeof(Flow));
+  if (flow == NULL) {
+    return NULL;
+  }
+  return flow;
+}
+
 void construct_key(FlowKey *key, uint8_t ip_version, uint32_t src_ip,
                    uint32_t dst_ip, uint16_t src_port, uint16_t dst_port) {
   // Xóa sạch bộ nhớ để tránh lỗi padding

@@ -1,6 +1,7 @@
 #ifndef TLS_SNI_PARSER_H
 #define TLS_SNI_PARSER_H
 
+#include "flow.h"
 #include "packet.h"
 
 #include <stdbool.h>

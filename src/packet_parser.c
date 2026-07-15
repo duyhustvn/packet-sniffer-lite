@@ -1,4 +1,5 @@
 #include "packet_parser.h"
+#include "flow.h"
 
 #include <arpa/inet.h>
 #include <linux/if_ether.h>
@@ -132,7 +133,7 @@ static bool parse_tcp(const uint8_t *packet, size_t packet_len, size_t tcp_off,
 // - Returns false when the packet is truncated, is not IPv4/TCP, is an IPv4
 //   fragment, or has invalid length/header fields.
 static bool parse_ipv4(const uint8_t *packet, size_t packet_len,
-                       struct packet_view *out) {
+                       struct packet_view *out, Flow *flows) {
   if (packet_len < sizeof(struct iphdr)) {
     return false;
   }
@@ -172,7 +173,7 @@ static bool parse_ipv4(const uint8_t *packet, size_t packet_len,
 }
 
 static bool parse_ipv6(const uint8_t *packet, size_t packet_len,
-                       struct packet_view *out) {
+                       struct packet_view *out, Flow *flows) {
   if (packet_len < sizeof(struct ip6_hdr)) {
     return false;
   }
@@ -239,7 +240,7 @@ static bool parse_ipv6(const uint8_t *packet, size_t packet_len,
 // [dst][src][0x8100][VLAN tag][0x0800][IPv4...], ham se bo qua VLAN tag de thay
 // real EtherType 0x0800 roi moi parse IPv4.
 bool parse_packet(const uint8_t *frame, size_t frame_len,
-                  struct packet_view *out) {
+                  struct packet_view *out, Flow *flows) {
   memset(out, 0, sizeof(*out));
 
   if (frame_len < ETH_HLEN) {
@@ -278,12 +279,13 @@ bool parse_packet(const uint8_t *frame, size_t frame_len,
     }
   }
 
+  bool parse_ip_result = false;
   if (ether_type == ETH_P_IP) {
-    return parse_ipv4(frame + off, frame_len - off, out);
+    parse_ip_result = parse_ipv4(frame + off, frame_len - off, out, flows);
   }
   if (ether_type == ETH_P_IPV6) {
-    return parse_ipv6(frame + off, frame_len - off, out);
+    parse_ip_result = parse_ipv6(frame + off, frame_len - off, out, flows);
   }
 
-  return false;
+  return parse_ip_result;
 }
