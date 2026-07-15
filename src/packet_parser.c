@@ -6,6 +6,7 @@
 #include <linux/if_vlan.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
+#include <stdbool.h>
 #include <string.h>
 
 #define TCP_MIN_HLEN 20
@@ -29,6 +30,18 @@ static bool read_u16(const uint8_t *buf, size_t len, size_t off,
   // Packet fields are stored in network byte order (big-endian).
   // Convert them to the host CPU's byte order before returning the value.
   *out = ntohs(tmp);
+  return true;
+}
+
+static bool read_u32(const uint8_t *buf, size_t len, size_t off,
+                     uint32_t *out) {
+  if (off + 4 > len) {
+    return false;
+  }
+
+  uint32_t tmp;
+  memcpy(&tmp, buf + off, sizeof(tmp));
+  *out = ntohl(tmp);
   return true;
 }
 
@@ -109,10 +122,16 @@ static bool parse_tcp(const uint8_t *packet, size_t packet_len, size_t tcp_off,
     return false;
   }
 
+  uint32_t sequence_number;
+  if (!read_u32(packet, packet_len, tcp_off + 4, &sequence_number)) {
+    return false;
+  }
+
   out->src_port = src_port;
   out->dst_port = dst_port;
   out->payload = packet + tcp_off + tcp_hlen;
   out->payload_len = packet_len - tcp_off - tcp_hlen;
+  out->sequence_number = sequence_number;
   return true;
 }
 
@@ -133,7 +152,7 @@ static bool parse_tcp(const uint8_t *packet, size_t packet_len, size_t tcp_off,
 // - Returns false when the packet is truncated, is not IPv4/TCP, is an IPv4
 //   fragment, or has invalid length/header fields.
 static bool parse_ipv4(const uint8_t *packet, size_t packet_len,
-                       struct packet_view *out, Flow *flows) {
+                       struct packet_view *out) {
   if (packet_len < sizeof(struct iphdr)) {
     return false;
   }
@@ -173,7 +192,7 @@ static bool parse_ipv4(const uint8_t *packet, size_t packet_len,
 }
 
 static bool parse_ipv6(const uint8_t *packet, size_t packet_len,
-                       struct packet_view *out, Flow *flows) {
+                       struct packet_view *out) {
   if (packet_len < sizeof(struct ip6_hdr)) {
     return false;
   }
@@ -281,10 +300,10 @@ bool parse_packet(const uint8_t *frame, size_t frame_len,
 
   bool parse_ip_result = false;
   if (ether_type == ETH_P_IP) {
-    parse_ip_result = parse_ipv4(frame + off, frame_len - off, out, flows);
+    parse_ip_result = parse_ipv4(frame + off, frame_len - off, out);
   }
   if (ether_type == ETH_P_IPV6) {
-    parse_ip_result = parse_ipv6(frame + off, frame_len - off, out, flows);
+    parse_ip_result = parse_ipv6(frame + off, frame_len - off, out);
   }
 
   return parse_ip_result;

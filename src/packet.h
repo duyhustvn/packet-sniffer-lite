@@ -18,6 +18,7 @@ struct packet_view {
   uint16_t dst_port;
   const uint8_t *payload;
   size_t payload_len;
+  uint32_t sequence_number;
 };
 
 void print_packet(struct packet_view *pkt);
