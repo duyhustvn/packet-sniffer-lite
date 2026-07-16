@@ -1,5 +1,11 @@
 CC ?= cc
-CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
+DEBUG ?= 0
+
+ifeq ($(DEBUG), 1)
+    CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -g -O0 -DDEBUG
+else
+    CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
+endif
 CPPFLAGS ?= -Isrc -Itests/unity
 LDFLAGS ?=
 
@@ -11,6 +17,7 @@ OBJ_DIR := $(BUILD_DIR)/obj
 SRC := \
 	src/main.c \
 	src/packet_parser.c \
+	src/packet.c \
 	src/http_parser.c \
 	src/tls_sni_parser.c \
 	src/flow.c \

@@ -35,9 +35,25 @@ ctest --test-dir build --output-on-failure
 
 Raw packet sockets require root or `CAP_NET_RAW`.
 
+### Run with `sudo`
+
 ```sh
 sudo ./build/packet-sniffer-lite -i eth0
 ```
+
+### Run without `root` (Recommended)
+
+To run the program as a non-root user, grant `CAP_NET_RAW` and `CAP_NET_ADMIN` capabilities to the compiled binary:
+
+```sh
+# Grant capabilities
+sudo setcap cap_net_raw,cap_net_admin=eip ./build/packet-sniffer-lite
+
+# Run without sudo
+./build/packet-sniffer-lite -i eth0
+```
+
+*Note: If you rebuild/recompile the program, the capabilities are lost and you will need to re-run the `setcap` command.*
 
 Use verbose mode when debugging capture. It prints every parsed TCP segment
 with payload, even when no hostname is found:

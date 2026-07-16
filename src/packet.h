@@ -16,7 +16,7 @@ struct packet_view {
   } src_ip_bin, dst_ip_bin;
   uint16_t src_port;
   uint16_t dst_port;
-  const uint8_t *payload;
+  uint8_t *payload;
   size_t payload_len;
   uint32_t sequence_number;
 };

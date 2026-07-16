@@ -9,6 +9,19 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
+# Check if environment variable DEBUG=1 is set to default to Debug build
+if(NOT CMAKE_BUILD_TYPE)
+  if("$ENV{DEBUG}" STREQUAL "1")
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build" FORCE)
+  else()
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build" FORCE)
+  endif()
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  add_compile_definitions(DEBUG)
+endif()
+
 add_library(sniffer_parsers
     src/packet_parser.c
     src/packet.c

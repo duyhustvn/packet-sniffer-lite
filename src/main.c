@@ -59,6 +59,19 @@ int main(int argc, char **argv) {
   const char *ifname = NULL;
   bool verbose = false;
 
+  const char *debug_env = getenv("DEBUG");
+  if (debug_env != NULL &&
+      (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0 ||
+       strcmp(debug_env, "TRUE") == 0)) {
+    verbose = true;
+  }
+  const char *ps_debug_env = getenv("PACKET_SNIFFER_DEBUG");
+  if (ps_debug_env != NULL &&
+      (strcmp(ps_debug_env, "1") == 0 || strcmp(ps_debug_env, "true") == 0 ||
+       strcmp(ps_debug_env, "TRUE") == 0)) {
+    verbose = true;
+  }
+
   int opt;
   while ((opt = getopt(argc, argv, "hi:v")) != -1) {
     switch (opt) {
@@ -94,7 +107,7 @@ int main(int argc, char **argv) {
           ifname ? " on " : "", ifname ? ifname : "");
 
   uint8_t buffer[65536];
-  Flow *flows = init_flow();
+  Flow *flows = NULL;
   while (keep_running) {
     ssize_t nread = recvfrom(fd, buffer, sizeof(buffer), 0, NULL, NULL);
     if (nread == -1) {
@@ -112,6 +125,27 @@ int main(int argc, char **argv) {
       continue;
     }
 
+    FlowKey key;
+    Flow *flow = NULL;
+    bool tls_payload_complete = false;
+    if (pkt.ip_version == 4) {
+      construct_key(&key, pkt.ip_version, pkt.src_ip_bin.v4, pkt.dst_ip_bin.v4,
+                    pkt.src_port, pkt.dst_port);
+      flow = lookup(&key, flows);
+      if (flow != NULL && flow->complete) {
+        tls_payload_complete = true;
+      } else {
+        upsert(&key, &flows, pkt.payload, pkt.payload_len, pkt.sequence_number);
+        continue;
+      }
+    } else {
+      // construct_key(&key, out->ip_version, out->src_ip_bin.v6,
+      // out->dst_ip_bin.v6,
+      //              out->src_port, out->dst_port);
+      // chưa hỗ trợ ipv6
+      continue;
+    }
+
     if (verbose) {
       print_packet(&pkt);
     }
@@ -119,10 +153,11 @@ int main(int argc, char **argv) {
     char host[HOST_MAX_LEN];
     const char *kind = NULL;
 
-    if ((pkt.dst_port == 80 || pkt.src_port == 80) &&
+    if ((pkt.dst_port == 80 || pkt.src_port == 80) && tls_payload_complete &&
         extract_http_host(pkt.payload, pkt.payload_len, host, sizeof(host))) {
       kind = "HTTP";
     } else if ((pkt.dst_port == 443 || pkt.src_port == 443) &&
+               tls_payload_complete &&
                extract_tls_sni(pkt.payload, pkt.payload_len, host,
                                sizeof(host))) {
       kind = "TLS-SNI";
