@@ -13,6 +13,8 @@ typedef struct {
   uint16_t dst_port;
 } FlowKey;
 
+void print_key(FlowKey *key);
+
 #define FLOW_BUFFER_SIZE 65536 // 64 KB
 
 typedef struct {
@@ -32,6 +34,7 @@ typedef struct {
   UT_hash_handle hh;
 } Flow;
 
+Flow *init_flow();
 void construct_key(FlowKey *key, uint8_t ip_version, uint32_t src_ip,
                    uint32_t dst_ip, uint16_t src_port, uint16_t dst_port);
 

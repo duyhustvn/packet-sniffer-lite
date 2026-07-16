@@ -125,12 +125,19 @@ int main(int argc, char **argv) {
       continue;
     }
 
+#ifdef DEBUG
+    print_packet(&pkt);
+#endif
+
     FlowKey key;
     Flow *flow = NULL;
     bool tls_payload_complete = false;
     if (pkt.ip_version == 4) {
       construct_key(&key, pkt.ip_version, pkt.src_ip_bin.v4, pkt.dst_ip_bin.v4,
                     pkt.src_port, pkt.dst_port);
+#ifdef DEBUG
+      print_key(&key);
+#endif
       flow = lookup(&key, flows);
       if (flow != NULL && flow->complete) {
         tls_payload_complete = true;
@@ -144,10 +151,6 @@ int main(int argc, char **argv) {
       //              out->src_port, out->dst_port);
       // chưa hỗ trợ ipv6
       continue;
-    }
-
-    if (verbose) {
-      print_packet(&pkt);
     }
 
     char host[HOST_MAX_LEN];
