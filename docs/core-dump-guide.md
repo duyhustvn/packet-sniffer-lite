@@ -94,6 +94,19 @@ Trong đó các ký tự định dạng có ý nghĩa:
 - `%t`: Thời điểm crash (UNIX timestamp).
 - `%s`: Signal gây ra crash (ví dụ: 11 đối với SIGSEGV).
 
+> [!IMPORTANT]
+> **Lưu ý bảo mật về `setcap` / `setuid` (Nguyên nhân phổ biến nhất khiến không sinh file core):**
+> 
+> Nếu chương trình của bạn cần quyền mạng đặc biệt và bạn sử dụng lệnh `setcap` (ví dụ: `sudo setcap cap_net_raw,cap_net_admin=eip ...`), Linux sẽ kích hoạt cơ chế bảo mật để ngăn sinh file core dump nhằm tránh rò rỉ dữ liệu nhạy cảm của tiến trình có đặc quyền.
+> 
+> Nếu hệ thống của bạn cấu hình `fs.suid_dumpable = 2` (Safe mode) mà `core_pattern` của bạn là **đường dẫn tương đối** (như `core.%e.%p.%t`), Linux sẽ **từ chối sinh file core**.
+> 
+> **Cách xử lý:**
+> Bạn hãy cấu hình tạm thời `fs.suid_dumpable` về chế độ gỡ lỗi `1` bằng lệnh sau:
+> ```bash
+> sudo sysctl -w fs.suid_dumpable=1
+> ```
+
 ---
 
 ## Bước 3: Biên dịch chương trình với thông tin Debug
@@ -106,8 +119,11 @@ Trong đó các ký tự định dạng có ý nghĩa:
   ```
 - **Sử dụng Makefile**: Đảm bảo cờ biên dịch `CFLAGS` chứa `-g -O0` (ví dụ chạy: `DEBUG=1 make`).
 - **Sử dụng CMake**: Build ở chế độ Debug:
+  Để đảm bảo các cờ debug được cấu hình chính xác và không bị ảnh hưởng bởi cache cấu hình cũ của CMake, khuyến cáo bạn nên xóa thư mục build cũ và cấu hình tường minh:
   ```bash
-  cmake -DCMAKE_BUILD_TYPE=Debug ..
+  rm -rf build
+  cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+  cmake --build build
   ```
 
 ---
