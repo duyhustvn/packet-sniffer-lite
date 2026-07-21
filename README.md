@@ -31,6 +31,15 @@ Run parser tests:
 ctest --test-dir build --output-on-failure
 ```
 
+### IDE Setup (Autocompletion & IntelliSense)
+
+To enable accurate C header inclusion and code navigation in IDEs (VS Code, CLion, Neovim LSP, clangd), generate `compile_commands.json`:
+
+```sh
+cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+ln -sf build/compile_commands.json compile_commands.json
+```
+
 ## Run
 
 Raw packet sockets require root or `CAP_NET_RAW`.

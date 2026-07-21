@@ -1,8 +1,18 @@
 #include "http_parser.h"
 #include "tls_sni_parser.h"
+#include "unity.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+void setUp(void) {
+  // Hàm này chạy trước mỗi test case
+}
+
+void tearDown(void) {
+  // Hàm này chạy sau mỗi test case
+}
 
 static int hex_value(char c) {
   if (c >= '0' && c <= '9') {
@@ -35,27 +45,20 @@ static int hex_to_bytes(const char *hex, uint8_t *out, size_t out_len) {
   return 0;
 }
 
-static int test_http_host(void) {
+static void test_http_host(void) {
   const uint8_t request[] = "GET / HTTP/1.1\r\n"
                             "User-Agent: test\r\n"
                             "Host: example.com\r\n"
                             "\r\n";
   char host[HOST_MAX_LEN];
 
-  if (!extract_http_host(request, sizeof(request) - 1, host, sizeof(host))) {
-    fprintf(stderr, "HTTP parser did not find Host header\n");
-    return 1;
-  }
-
-  if (strcmp(host, "example.com") != 0) {
-    fprintf(stderr, "HTTP parser got '%s'\n", host);
-    return 1;
-  }
-
-  return 0;
+  TEST_ASSERT_TRUE_MESSAGE(
+      extract_http_host(request, sizeof(request) - 1, host, sizeof(host)),
+      "HTTP parser did not find Host header");
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("example.com", host, "HTTP parser got wrong host");
 }
 
-static int test_tls_sni_hex(void) {
+static void test_tls_sni_hex(void) {
   const uint8_t client_hello[] = {
       0x16, 0x03, 0x01, 0x00, 0x43, 0x01, 0x00, 0x00, 0x3f, 0x03, 0x03, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -65,21 +68,13 @@ static int test_tls_sni_hex(void) {
       0x0b, 'e',  'x',  'a',  'm',  'p',  'l',  'e',  '.',  'c',  'o',  'm'};
   char host[HOST_MAX_LEN];
 
-  if (!extract_tls_sni(client_hello, sizeof(client_hello), host,
-                       sizeof(host))) {
-    fprintf(stderr, "TLS parser did not find SNI\n");
-    return 1;
-  }
-
-  if (strcmp(host, "example.com") != 0) {
-    fprintf(stderr, "TLS parser got '%s'\n", host);
-    return 1;
-  }
-
-  return 0;
+  TEST_ASSERT_TRUE_MESSAGE(
+      extract_tls_sni(client_hello, sizeof(client_hello), host, sizeof(host)),
+      "TLS parser did not find SNI");
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("example.com", host, "TLS parser got wrong host");
 }
 
-static int test_tls_sni_hex_stream(void) {
+static void test_tls_sni_hex_stream(void) {
   typedef struct {
     const char *name;
     const char *payload_hex;
@@ -216,54 +211,30 @@ static int test_tls_sni_hex_stream(void) {
     char host[HOST_MAX_LEN];
     size_t payload_len = strlen(cases[i].payload_hex) / 2;
 
-    if (payload_len > sizeof(payload)) {
-      fprintf(stderr, "Test case '%s' payload size too large for buffer\n",
-              cases[i].name);
-      return 1;
-    }
+    TEST_ASSERT_TRUE_MESSAGE(payload_len <= sizeof(payload), cases[i].name);
 
     int hex_status = hex_to_bytes(cases[i].payload_hex, payload, payload_len);
     if (cases[i].expected_success) {
-      if (hex_status != 0) {
-        fprintf(stderr, "Test case '%s' failed: payload hex is invalid\n",
-                cases[i].name);
-        return 1;
-      }
-
-      if (!extract_tls_sni(payload, payload_len, host, sizeof(host))) {
-        fprintf(stderr, "Test case '%s' failed: TLS parser did not find SNI\n",
-                cases[i].name);
-        return 1;
-      }
-
-      if (strcmp(host, cases[i].expected_host) != 0) {
-        fprintf(stderr,
-                "Test case '%s' failed: expected SNI '%s', but got '%s'\n",
-                cases[i].name, cases[i].expected_host, host);
-        return 1;
-      }
+      TEST_ASSERT_EQUAL_INT_MESSAGE(0, hex_status, cases[i].name);
+      TEST_ASSERT_TRUE_MESSAGE(
+          extract_tls_sni(payload, payload_len, host, sizeof(host)),
+          cases[i].name);
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(cases[i].expected_host, host,
+                                        cases[i].name);
     } else {
       if (hex_status == 0) {
-        if (extract_tls_sni(payload, payload_len, host, sizeof(host))) {
-          fprintf(stderr,
-                  "Test case '%s' failed: expected failure, but extracted SNI "
-                  "'%s'\n",
-                  cases[i].name, host);
-          return 1;
-        }
+        TEST_ASSERT_FALSE_MESSAGE(
+            extract_tls_sni(payload, payload_len, host, sizeof(host)),
+            cases[i].name);
       }
     }
   }
-
-  return 0;
 }
 
 int main(void) {
-  if (test_http_host() != 0 || test_tls_sni_hex() != 0 ||
-      test_tls_sni_hex_stream() != 0) {
-    return 1;
-  }
-
-  puts("parser tests passed");
-  return 0;
+  UNITY_BEGIN();
+  RUN_TEST(test_http_host);
+  RUN_TEST(test_tls_sni_hex);
+  RUN_TEST(test_tls_sni_hex_stream);
+  return UNITY_END();
 }

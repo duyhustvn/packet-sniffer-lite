@@ -25,6 +25,7 @@ SRC := \
 OBJ := $(SRC:%.c=$(OBJ_DIR)/%.o)
 TEST_OBJ := \
 	$(OBJ_DIR)/tests/test_parsers.o \
+	$(OBJ_DIR)/tests/unity/unity.o \
 	$(OBJ_DIR)/src/http_parser.o \
 	$(OBJ_DIR)/src/tls_sni_parser.o
 TEST_FLOW_OBJ := \

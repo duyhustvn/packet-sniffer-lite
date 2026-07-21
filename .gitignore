@@ -2,3 +2,4 @@
 build/
 packet-sniffer-lite
 test_parsers
+compile_commands.json

@@ -259,7 +259,11 @@ static bool parse_ipv6(const uint8_t *packet, size_t packet_len,
 // [dst][src][0x8100][VLAN tag][0x0800][IPv4...], ham se bo qua VLAN tag de thay
 // real EtherType 0x0800 roi moi parse IPv4.
 bool parse_packet(const uint8_t *frame, size_t frame_len,
-                  struct packet_view *out, Flow *flows) {
+                  struct packet_view *out) {
+#ifdef DEBUG
+  printf("frame: %s \n", frame);
+#endif
+
   memset(out, 0, sizeof(*out));
 
   if (frame_len < ETH_HLEN) {

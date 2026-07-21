@@ -7,8 +7,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 bool parse_packet(const uint8_t *frame, size_t frame_len,
-                  struct packet_view *out, Flow *flows);
+                  struct packet_view *out);
 
 #endif
