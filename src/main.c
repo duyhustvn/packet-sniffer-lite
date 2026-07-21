@@ -1,10 +1,7 @@
 #define _GNU_SOURCE
 
 #include "flow.h"
-#include "http_parser.h"
-#include "packet.h"
-#include "packet_parser.h"
-#include "tls_sni_parser.h"
+#include "frame.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -55,85 +52,14 @@ static int bind_interface(int fd, const char *ifname) {
   return 0;
 }
 
-void process_packet(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
-  struct packet_view pkt;
-  if (!parse_packet(buffer, buffer_len, &pkt) || pkt.payload_len == 0) {
-    return;
-  }
-
-#ifdef DEBUG
-  print_packet(&pkt);
-#endif
-
-  FlowKey key;
-  Flow *flow = NULL;
-  bool tls_payload_complete = false;
-  if (pkt.ip_version == 4) {
-    construct_key(&key, pkt.ip_version, pkt.src_ip_bin.v4, pkt.dst_ip_bin.v4,
-                  pkt.src_port, pkt.dst_port);
-#ifdef DEBUG
-    print_key(&key);
-#endif
-    flow = lookup(&key, *flows);
-    if (flow != NULL && flow->complete) {
-      tls_payload_complete = true;
-    } else {
-      upsert(&key, flows, pkt.payload, pkt.payload_len, pkt.sequence_number);
-      return;
-    }
-  } else {
-    // construct_key(&key, out->ip_version, out->src_ip_bin.v6,
-    // out->dst_ip_bin.v6,
-    //              out->src_port, out->dst_port);
-    // chưa hỗ trợ ipv6
-    return;
-  }
-
-  char host[HOST_MAX_LEN];
-  const char *kind = NULL;
-
-  if ((pkt.dst_port == 80 || pkt.src_port == 80) && tls_payload_complete &&
-      extract_http_host(pkt.payload, pkt.payload_len, host, sizeof(host))) {
-    kind = "HTTP";
-  } else if ((pkt.dst_port == 443 || pkt.src_port == 443) &&
-             tls_payload_complete &&
-             extract_tls_sni(pkt.payload, pkt.payload_len, host,
-                             sizeof(host))) {
-    kind = "TLS-SNI";
-  }
-
-  if (kind != NULL) {
-    printf("%s %s:%u -> %s:%u host=%s\n", kind, pkt.src_ip, pkt.src_port,
-           pkt.dst_ip, pkt.dst_port, host);
-    fflush(stdout);
-  }
-}
-
 int main(int argc, char **argv) {
   const char *ifname = NULL;
-  bool verbose = false;
-
-  const char *debug_env = getenv("DEBUG");
-  if (debug_env != NULL &&
-      (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0 ||
-       strcmp(debug_env, "TRUE") == 0)) {
-    verbose = true;
-  }
-  const char *ps_debug_env = getenv("PACKET_SNIFFER_DEBUG");
-  if (ps_debug_env != NULL &&
-      (strcmp(ps_debug_env, "1") == 0 || strcmp(ps_debug_env, "true") == 0 ||
-       strcmp(ps_debug_env, "TRUE") == 0)) {
-    verbose = true;
-  }
 
   int opt;
   while ((opt = getopt(argc, argv, "hi:v")) != -1) {
     switch (opt) {
     case 'i':
       ifname = optarg;
-      break;
-    case 'v':
-      verbose = true;
       break;
     case 'h':
     default:
@@ -172,7 +98,7 @@ int main(int argc, char **argv) {
       close(fd);
       return 1;
     }
-    process_packet(buffer, (size_t)nread, &flows);
+    process_frame(buffer, (size_t)nread, &flows);
   }
 
   close(fd);

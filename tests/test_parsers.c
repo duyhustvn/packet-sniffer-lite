@@ -1,6 +1,9 @@
+#include "frame.h"
 #include "http_parser.h"
+#include "packet_parser.h"
 #include "tls_sni_parser.h"
 #include "unity.h"
+#include "unity_internals.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -55,7 +58,8 @@ static void test_http_host(void) {
   TEST_ASSERT_TRUE_MESSAGE(
       extract_http_host(request, sizeof(request) - 1, host, sizeof(host)),
       "HTTP parser did not find Host header");
-  TEST_ASSERT_EQUAL_STRING_MESSAGE("example.com", host, "HTTP parser got wrong host");
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("example.com", host,
+                                   "HTTP parser got wrong host");
 }
 
 static void test_tls_sni_hex(void) {
@@ -71,7 +75,8 @@ static void test_tls_sni_hex(void) {
   TEST_ASSERT_TRUE_MESSAGE(
       extract_tls_sni(client_hello, sizeof(client_hello), host, sizeof(host)),
       "TLS parser did not find SNI");
-  TEST_ASSERT_EQUAL_STRING_MESSAGE("example.com", host, "TLS parser got wrong host");
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("example.com", host,
+                                   "TLS parser got wrong host");
 }
 
 static void test_tls_sni_hex_stream(void) {
@@ -220,7 +225,7 @@ static void test_tls_sni_hex_stream(void) {
           extract_tls_sni(payload, payload_len, host, sizeof(host)),
           cases[i].name);
       TEST_ASSERT_EQUAL_STRING_MESSAGE(cases[i].expected_host, host,
-                                        cases[i].name);
+                                       cases[i].name);
     } else {
       if (hex_status == 0) {
         TEST_ASSERT_FALSE_MESSAGE(
@@ -231,10 +236,38 @@ static void test_tls_sni_hex_stream(void) {
   }
 }
 
+static void test_process_frame(void) {
+  typedef struct {
+    const char *name;
+    const char *buffer;
+  } TestCase;
+
+  TestCase cases[] = {
+      {
+          .name = "",
+          .buffer = "",
+      },
+  };
+
+  Flow *flows = NULL;
+  for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+    uint8_t buffer[2048];
+    size_t buffer_len = strlen(cases[i].buffer) / 2;
+
+    TEST_ASSERT_TRUE_MESSAGE(buffer_len <= sizeof(buffer), cases[i].name);
+
+    int hex_status = hex_to_bytes(cases[i].buffer, buffer, buffer_len);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, hex_status, cases[i].name);
+
+    process_frame(buffer, buffer_len, &flows);
+  }
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_http_host);
   RUN_TEST(test_tls_sni_hex);
   RUN_TEST(test_tls_sni_hex_stream);
+  RUN_TEST(test_process_frame);
   return UNITY_END();
 }

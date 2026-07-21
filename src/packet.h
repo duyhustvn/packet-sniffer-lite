@@ -1,8 +1,7 @@
 #ifndef PACKET_H
 #define PACKET_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include "common.h"
 
 #define HOST_MAX_LEN 256
 

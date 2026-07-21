@@ -1,14 +1,6 @@
 #include "flow.h"
+#include "common.h"
 #include "util.h"
-#include <stdio.h>
-
-Flow *init_flow() {
-  Flow *flow = (Flow *)malloc(sizeof(Flow));
-  if (flow == NULL) {
-    return NULL;
-  }
-  return flow;
-}
 
 void print_key(FlowKey *key) {
   printf("key: %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u\n", key->src_ip >> 24,

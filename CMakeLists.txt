@@ -29,6 +29,7 @@ add_library(sniffer_parsers
     src/tls_sni_parser.c
     src/flow.c
     src/util.c
+    src/frame.c
 )
 target_include_directories(sniffer_parsers
     PUBLIC
