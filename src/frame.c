@@ -1,6 +1,7 @@
 #include "frame.h"
 #include "common.h"
 #include "http_parser.h"
+#include "packet.h"
 #include "packet_parser.h"
 #include "tls_sni_parser.h"
 
@@ -52,8 +53,8 @@ void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
   }
 
   if (kind != NULL) {
-    printf("%s %s:%u -> %s:%u host=%s\n", kind, pkt.src_ip, pkt.src_port,
-           pkt.dst_ip, pkt.dst_port, host);
+    print_packet(&pkt);
+    printf("host=%s\n", host);
     fflush(stdout);
   }
 }

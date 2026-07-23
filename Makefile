@@ -27,7 +27,12 @@ TEST_OBJ := \
 	$(OBJ_DIR)/tests/test_parsers.o \
 	$(OBJ_DIR)/tests/unity/unity.o \
 	$(OBJ_DIR)/src/http_parser.o \
-	$(OBJ_DIR)/src/tls_sni_parser.o
+	$(OBJ_DIR)/src/tls_sni_parser.o \
+	$(OBJ_DIR)/src/packet_parser.o \
+	$(OBJ_DIR)/src/packet.o \
+	$(OBJ_DIR)/src/frame.o \
+	$(OBJ_DIR)/src/flow.o \
+	$(OBJ_DIR)/src/util.o
 TEST_FLOW_OBJ := \
 	$(OBJ_DIR)/tests/test_flow.o \
 	$(OBJ_DIR)/tests/unity/unity.o \

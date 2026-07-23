@@ -7,8 +7,8 @@
 
 struct packet {
   uint8_t ip_version;
-  char src_ip[46];
-  char dst_ip[46];
+  // char src_ip[46];
+  // char dst_ip[46];
   union {
     uint32_t v4;
     uint8_t v6[16];

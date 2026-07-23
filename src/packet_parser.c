@@ -178,12 +178,12 @@ static bool parse_ipv4(const uint8_t *packet, size_t packet_len,
     return false;
   }
 
-  struct in_addr src = {.s_addr = ip->saddr};
-  struct in_addr dst = {.s_addr = ip->daddr};
-  if (inet_ntop(AF_INET, &src, out->src_ip, sizeof(out->src_ip)) == NULL ||
-      inet_ntop(AF_INET, &dst, out->dst_ip, sizeof(out->dst_ip)) == NULL) {
-    return false;
-  }
+  // struct in_addr src = {.s_addr = ip->saddr};
+  // struct in_addr dst = {.s_addr = ip->daddr};
+  // if (inet_ntop(AF_INET, &src, out->src_ip, sizeof(out->src_ip)) == NULL ||
+  //     inet_ntop(AF_INET, &dst, out->dst_ip, sizeof(out->dst_ip)) == NULL) {
+  //   return false;
+  // }
 
   out->src_ip_bin.v4 = ip->saddr;
   out->dst_ip_bin.v4 = ip->daddr;
@@ -218,12 +218,12 @@ static bool parse_ipv6(const uint8_t *packet, size_t packet_len,
     return false;
   }
 
-  if (inet_ntop(AF_INET6, &ip6->ip6_src, out->src_ip, sizeof(out->src_ip)) ==
-          NULL ||
-      inet_ntop(AF_INET6, &ip6->ip6_dst, out->dst_ip, sizeof(out->dst_ip)) ==
-          NULL) {
-    return false;
-  }
+  // if (inet_ntop(AF_INET6, &ip6->ip6_src, out->src_ip, sizeof(out->src_ip)) ==
+  //         NULL ||
+  //     inet_ntop(AF_INET6, &ip6->ip6_dst, out->dst_ip, sizeof(out->dst_ip)) ==
+  //         NULL) {
+  //   return false;
+  // }
 
   memcpy(out->src_ip_bin.v6, &ip6->ip6_src, sizeof(ip6->ip6_src));
   memcpy(out->dst_ip_bin.v6, &ip6->ip6_dst, sizeof(ip6->ip6_dst));

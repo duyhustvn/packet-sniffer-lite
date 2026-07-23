@@ -358,8 +358,6 @@ static void test_parse_packet_ipv4_valid_tcp(void) {
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
   TEST_ASSERT_EQUAL_INT(4, pkt.ip_version);
-  TEST_ASSERT_EQUAL_STRING("192.168.1.100", pkt.src_ip);
-  TEST_ASSERT_EQUAL_STRING("10.0.0.1", pkt.dst_ip);
   TEST_ASSERT_EQUAL_UINT16(12345, pkt.src_port);
   TEST_ASSERT_EQUAL_UINT16(80, pkt.dst_port);
   TEST_ASSERT_EQUAL_UINT32(100000, pkt.sequence_number);
@@ -411,10 +409,14 @@ static void test_parse_packet_ipv4_options(void) {
 
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
-  TEST_ASSERT_EQUAL_STRING("172.16.0.1", pkt.src_ip);
-  TEST_ASSERT_EQUAL_STRING("172.16.0.2", pkt.dst_ip);
   TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
   TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+
+  struct in_addr expected_src, expected_dst;
+  inet_pton(AF_INET, "172.16.0.1", &expected_src);
+  inet_pton(AF_INET, "172.16.0.2", &expected_dst);
+  TEST_ASSERT_EQUAL_UINT32(expected_src.s_addr, pkt.src_ip_bin.v4);
+  TEST_ASSERT_EQUAL_UINT32(expected_dst.s_addr, pkt.dst_ip_bin.v4);
 }
 
 static void test_parse_packet_vlan_single_tag(void) {
@@ -434,12 +436,16 @@ static void test_parse_packet_vlan_single_tag(void) {
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
   TEST_ASSERT_EQUAL_INT(4, pkt.ip_version);
-  TEST_ASSERT_EQUAL_STRING("10.10.10.1", pkt.src_ip);
-  TEST_ASSERT_EQUAL_STRING("10.10.10.2", pkt.dst_ip);
   TEST_ASSERT_EQUAL_UINT16(8080, pkt.src_port);
   TEST_ASSERT_EQUAL_UINT16(80, pkt.dst_port);
   TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
   TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+
+  struct in_addr expected_src, expected_dst;
+  inet_pton(AF_INET, "10.10.10.1", &expected_src);
+  inet_pton(AF_INET, "10.10.10.2", &expected_dst);
+  TEST_ASSERT_EQUAL_UINT32(expected_src.s_addr, pkt.src_ip_bin.v4);
+  TEST_ASSERT_EQUAL_UINT32(expected_dst.s_addr, pkt.dst_ip_bin.v4);
 }
 
 static void test_parse_packet_vlan_double_tag(void) {
@@ -459,12 +465,16 @@ static void test_parse_packet_vlan_double_tag(void) {
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
   TEST_ASSERT_EQUAL_INT(4, pkt.ip_version);
-  TEST_ASSERT_EQUAL_STRING("10.20.30.40", pkt.src_ip);
-  TEST_ASSERT_EQUAL_STRING("10.20.30.50", pkt.dst_ip);
   TEST_ASSERT_EQUAL_UINT16(9000, pkt.src_port);
   TEST_ASSERT_EQUAL_UINT16(443, pkt.dst_port);
   TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
   TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+
+  struct in_addr expected_src, expected_dst;
+  inet_pton(AF_INET, "10.20.30.40", &expected_src);
+  inet_pton(AF_INET, "10.20.30.50", &expected_dst);
+  TEST_ASSERT_EQUAL_UINT32(expected_src.s_addr, pkt.src_ip_bin.v4);
+  TEST_ASSERT_EQUAL_UINT32(expected_dst.s_addr, pkt.dst_ip_bin.v4);
 }
 
 static void test_parse_packet_ipv6_valid_tcp(void) {
@@ -483,8 +493,6 @@ static void test_parse_packet_ipv6_valid_tcp(void) {
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
   TEST_ASSERT_EQUAL_INT(6, pkt.ip_version);
-  TEST_ASSERT_EQUAL_STRING("2001:db8::1", pkt.src_ip);
-  TEST_ASSERT_EQUAL_STRING("2001:db8::2", pkt.dst_ip);
   TEST_ASSERT_EQUAL_UINT16(54321, pkt.src_port);
   TEST_ASSERT_EQUAL_UINT16(443, pkt.dst_port);
   TEST_ASSERT_EQUAL_UINT32(50000, pkt.sequence_number);
@@ -523,12 +531,16 @@ static void test_parse_packet_ipv6_extension_header(void) {
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
   TEST_ASSERT_EQUAL_INT(6, pkt.ip_version);
-  TEST_ASSERT_EQUAL_STRING("2001:db8::10", pkt.src_ip);
-  TEST_ASSERT_EQUAL_STRING("2001:db8::20", pkt.dst_ip);
   TEST_ASSERT_EQUAL_UINT16(8080, pkt.src_port);
   TEST_ASSERT_EQUAL_UINT16(80, pkt.dst_port);
   TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
   TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+
+  struct in6_addr expected_src6, expected_dst6;
+  inet_pton(AF_INET6, "2001:db8::10", &expected_src6);
+  inet_pton(AF_INET6, "2001:db8::20", &expected_dst6);
+  TEST_ASSERT_EQUAL_MEMORY(&expected_src6, pkt.src_ip_bin.v6, 16);
+  TEST_ASSERT_EQUAL_MEMORY(&expected_dst6, pkt.dst_ip_bin.v6, 16);
 }
 
 static void test_parse_packet_truncated_frames(void) {
