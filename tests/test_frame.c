@@ -165,7 +165,7 @@ static void test_process_frame_ipv4_http_flow_creation(void) {
 static void test_process_frame_tls_flow_completion(void) {
   uint8_t frame[512];
   uint8_t tls_payload[] = {
-      0x16, 0x03, 0x01, 0x00, 0x0a,
+      0x16, 0x03, 0x01, 0x00, 0x05,
       0x05, 0x06, 0x07, 0x08, 0x09};
   size_t payload_len = sizeof(tls_payload);
 
@@ -240,6 +240,76 @@ static void test_process_frame_out_of_order_seq(void) {
   free_flows(&flows);
 }
 
+static int hex_value(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+static int hex_to_bytes(const char *hex, uint8_t *out, size_t out_len) {
+  size_t hex_len = strlen(hex);
+  if (hex_len != out_len * 2) return 1;
+
+  for (size_t i = 0; i < out_len; i++) {
+    int hi = hex_value(hex[i * 2]);
+    int lo = hex_value(hex[i * 2 + 1]);
+    if (hi < 0 || lo < 0) return 1;
+    out[i] = (uint8_t)((hi << 4) | lo);
+  }
+  return 0;
+}
+
+static void test_process_frame_real_wireshark_frame(void) {
+  FILE *fp = fopen("tests/complete_frame.txt", "r");
+  if (!fp) {
+    fp = fopen("../tests/complete_frame.txt", "r");
+  }
+  if (!fp) {
+    fp = fopen("../../tests/complete_frame.txt", "r");
+  }
+  TEST_ASSERT_NOT_NULL_MESSAGE(fp, "Could not open tests/complete_frame.txt");
+
+  char hex_buf[4096];
+  if (!fgets(hex_buf, sizeof(hex_buf), fp)) {
+    fclose(fp);
+    TEST_FAIL_MESSAGE("Failed to read tests/complete_frame.txt");
+  }
+  fclose(fp);
+
+  size_t hex_len = strlen(hex_buf);
+  while (hex_len > 0 &&
+         (hex_buf[hex_len - 1] == '\r' || hex_buf[hex_len - 1] == '\n' ||
+          hex_buf[hex_len - 1] == ' ')) {
+    hex_buf[--hex_len] = '\0';
+  }
+
+  uint8_t frame[2048];
+  size_t frame_len = hex_len / 2;
+  TEST_ASSERT_EQUAL_INT_MESSAGE(0, hex_to_bytes(hex_buf, frame, frame_len),
+                                "Hex decoding failed");
+
+  Flow *flows = NULL;
+
+  process_frame(frame, frame_len, &flows);
+  TEST_ASSERT_NOT_NULL(flows);
+
+  struct in_addr src_addr, dst_addr;
+  inet_pton(AF_INET, "192.168.1.35", &src_addr);
+  inet_pton(AF_INET, "180.148.136.106", &dst_addr);
+
+  FlowKey key;
+  construct_key(&key, 4, src_addr.s_addr, dst_addr.s_addr, htons(49640),
+                htons(443));
+
+  Flow *f = lookup(&key, flows);
+  TEST_ASSERT_NOT_NULL(f);
+  TEST_ASSERT_EQUAL_UINT(1730, f->buffer_len);
+  TEST_ASSERT_TRUE(f->complete);
+
+  free_flows(&flows);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_process_frame_invalid_frame);
@@ -248,5 +318,6 @@ int main(void) {
   RUN_TEST(test_process_frame_ipv4_http_flow_creation);
   RUN_TEST(test_process_frame_tls_flow_completion);
   RUN_TEST(test_process_frame_out_of_order_seq);
+  RUN_TEST(test_process_frame_real_wireshark_frame);
   return UNITY_END();
 }
