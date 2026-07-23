@@ -1,3 +1,4 @@
+#include "common.h"
 #include "frame.h"
 #include "http_parser.h"
 #include "packet_parser.h"
@@ -5,9 +6,11 @@
 #include "unity.h"
 #include "unity_internals.h"
 
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
+#include <arpa/inet.h>
+#include <linux/if_ether.h>
+#include <linux/if_vlan.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
 
 void setUp(void) {
   // Hàm này chạy trước mỗi test case
@@ -235,12 +238,6 @@ static void test_tls_sni_hex_stream(void) {
     }
   }
 }
-
-#include <arpa/inet.h>
-#include <linux/if_ether.h>
-#include <linux/if_vlan.h>
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
 
 static size_t build_eth_header(uint8_t *buf, uint16_t ether_type) {
   uint8_t dst_mac[6] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55};
