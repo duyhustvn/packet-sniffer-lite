@@ -105,7 +105,7 @@ static bool skip_ipv6_extensions(const uint8_t *packet, size_t packet_len,
 // - Returns false when the TCP header is truncated or has an invalid data
 //   offset/header length.
 static bool parse_tcp(const uint8_t *packet, size_t packet_len, size_t tcp_off,
-                      struct packet_view *out) {
+                      struct packet *out) {
   if (tcp_off + TCP_MIN_HLEN > packet_len) {
     return false;
   }
@@ -129,7 +129,7 @@ static bool parse_tcp(const uint8_t *packet, size_t packet_len, size_t tcp_off,
 
   out->src_port = src_port;
   out->dst_port = dst_port;
-  out->payload = packet + tcp_off + tcp_hlen;
+  out->payload = (uint8_t *)(packet + tcp_off + tcp_hlen);
   out->payload_len = packet_len - tcp_off - tcp_hlen;
   out->sequence_number = sequence_number;
   return true;
@@ -152,7 +152,7 @@ static bool parse_tcp(const uint8_t *packet, size_t packet_len, size_t tcp_off,
 // - Returns false when the packet is truncated, is not IPv4/TCP, is an IPv4
 //   fragment, or has invalid length/header fields.
 static bool parse_ipv4(const uint8_t *packet, size_t packet_len,
-                       struct packet_view *out) {
+                       struct packet *out) {
   if (packet_len < sizeof(struct iphdr)) {
     return false;
   }
@@ -192,7 +192,7 @@ static bool parse_ipv4(const uint8_t *packet, size_t packet_len,
 }
 
 static bool parse_ipv6(const uint8_t *packet, size_t packet_len,
-                       struct packet_view *out) {
+                       struct packet *out) {
   if (packet_len < sizeof(struct ip6_hdr)) {
     return false;
   }
@@ -258,8 +258,7 @@ static bool parse_ipv6(const uint8_t *packet, size_t packet_len,
 // out->payload se tro den byte dau cua HTTP request. Neu frame co VLAN:
 // [dst][src][0x8100][VLAN tag][0x0800][IPv4...], ham se bo qua VLAN tag de thay
 // real EtherType 0x0800 roi moi parse IPv4.
-bool parse_packet(const uint8_t *frame, size_t frame_len,
-                  struct packet_view *out) {
+bool parse_packet(const uint8_t *frame, size_t frame_len, struct packet *out) {
 #ifdef DEBUG
   printf("frame: %s \n", frame);
 #endif

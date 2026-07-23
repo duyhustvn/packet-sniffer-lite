@@ -5,7 +5,7 @@
 
 #define HOST_MAX_LEN 256
 
-struct packet_view {
+struct packet {
   uint8_t ip_version;
   char src_ip[46];
   char dst_ip[46];
@@ -20,6 +20,6 @@ struct packet_view {
   uint32_t sequence_number;
 };
 
-void print_packet(struct packet_view *pkt);
+void print_packet(struct packet *pkt);
 
 #endif

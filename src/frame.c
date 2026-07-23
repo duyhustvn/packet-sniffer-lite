@@ -5,7 +5,7 @@
 #include "tls_sni_parser.h"
 
 void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
-  struct packet_view pkt;
+  struct packet pkt;
   if (!parse_packet(buffer, buffer_len, &pkt) || pkt.payload_len == 0) {
     return;
   }

@@ -236,31 +236,387 @@ static void test_tls_sni_hex_stream(void) {
   }
 }
 
-static void test_process_frame(void) {
-  typedef struct {
-    const char *name;
-    const char *buffer;
-  } TestCase;
+#include <arpa/inet.h>
+#include <linux/if_ether.h>
+#include <linux/if_vlan.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
 
-  TestCase cases[] = {
-      {
-          .name = "",
-          .buffer = "",
-      },
-  };
+static size_t build_eth_header(uint8_t *buf, uint16_t ether_type) {
+  uint8_t dst_mac[6] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55};
+  uint8_t src_mac[6] = {0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb};
+  memcpy(buf, dst_mac, 6);
+  memcpy(buf + 6, src_mac, 6);
+  uint16_t et = htons(ether_type);
+  memcpy(buf + 12, &et, 2);
+  return 14;
+}
 
-  Flow *flows = NULL;
-  for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
-    uint8_t buffer[2048];
-    size_t buffer_len = strlen(cases[i].buffer) / 2;
+static size_t build_vlan_frame(uint8_t *buf, uint16_t vlan_id,
+                               uint16_t real_ethertype) {
+  uint8_t dst_mac[6] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55};
+  uint8_t src_mac[6] = {0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb};
+  memcpy(buf, dst_mac, 6);
+  memcpy(buf + 6, src_mac, 6);
 
-    TEST_ASSERT_TRUE_MESSAGE(buffer_len <= sizeof(buffer), cases[i].name);
+  uint16_t tpid = htons(ETH_P_8021Q);
+  uint16_t tci = htons(vlan_id & 0x0fff);
+  uint16_t et = htons(real_ethertype);
 
-    int hex_status = hex_to_bytes(cases[i].buffer, buffer, buffer_len);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, hex_status, cases[i].name);
+  memcpy(buf + 12, &tpid, 2);
+  memcpy(buf + 14, &tci, 2);
+  memcpy(buf + 16, &et, 2);
+  return 18;
+}
 
-    process_frame(buffer, buffer_len, &flows);
-  }
+static size_t build_qinq_frame(uint8_t *buf, uint16_t outer_vlan,
+                               uint16_t inner_vlan, uint16_t real_ethertype) {
+  uint8_t dst_mac[6] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55};
+  uint8_t src_mac[6] = {0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb};
+  memcpy(buf, dst_mac, 6);
+  memcpy(buf + 6, src_mac, 6);
+
+  uint16_t outer_tpid = htons(ETH_P_8021AD);
+  uint16_t outer_tci = htons(outer_vlan & 0x0fff);
+  uint16_t inner_tpid = htons(ETH_P_8021Q);
+  uint16_t inner_tci = htons(inner_vlan & 0x0fff);
+  uint16_t et = htons(real_ethertype);
+
+  memcpy(buf + 12, &outer_tpid, 2);
+  memcpy(buf + 14, &outer_tci, 2);
+  memcpy(buf + 16, &inner_tpid, 2);
+  memcpy(buf + 18, &inner_tci, 2);
+  memcpy(buf + 20, &et, 2);
+  return 22;
+}
+
+static size_t build_ipv4_header(uint8_t *buf, uint8_t ihl, uint16_t total_len,
+                                uint8_t protocol, uint16_t frag_off,
+                                const char *src_ip_str,
+                                const char *dst_ip_str) {
+  struct iphdr *ip = (struct iphdr *)(void *)buf;
+  memset(ip, 0, ihl * 4);
+  ip->version = 4;
+  ip->ihl = ihl;
+  ip->tos = 0;
+  ip->tot_len = htons(total_len);
+  ip->id = htons(0x1234);
+  ip->frag_off = htons(frag_off);
+  ip->ttl = 64;
+  ip->protocol = protocol;
+  ip->check = 0;
+  inet_pton(AF_INET, src_ip_str, &ip->saddr);
+  inet_pton(AF_INET, dst_ip_str, &ip->daddr);
+  return ihl * 4;
+}
+
+static size_t build_ipv6_header(uint8_t *buf, uint16_t payload_len,
+                                uint8_t next_header, const char *src_ip_str,
+                                const char *dst_ip_str) {
+  struct ip6_hdr *ip6 = (struct ip6_hdr *)(void *)buf;
+  memset(ip6, 0, sizeof(*ip6));
+  ip6->ip6_vfc = 0x60;
+  ip6->ip6_plen = htons(payload_len);
+  ip6->ip6_nxt = next_header;
+  ip6->ip6_hlim = 64;
+  inet_pton(AF_INET6, src_ip_str, &ip6->ip6_src);
+  inet_pton(AF_INET6, dst_ip_str, &ip6->ip6_dst);
+  return sizeof(*ip6);
+}
+
+static size_t build_tcp_header(uint8_t *buf, uint16_t src_port,
+                               uint16_t dst_port, uint32_t seq,
+                               uint8_t data_offset_words) {
+  memset(buf, 0, data_offset_words * 4);
+  uint16_t sp = htons(src_port);
+  uint16_t dp = htons(dst_port);
+  uint32_t sq = htonl(seq);
+  memcpy(buf, &sp, 2);
+  memcpy(buf + 2, &dp, 2);
+  memcpy(buf + 4, &sq, 4);
+  buf[12] = (uint8_t)(data_offset_words << 4);
+  buf[13] = 0x18;
+  buf[14] = 0x20;
+  buf[15] = 0x00;
+  return data_offset_words * 4;
+}
+
+static void test_parse_packet_ipv4_valid_tcp(void) {
+  uint8_t frame[512];
+  const char *payload_data = "Hello, parse_packet!";
+  size_t payload_len = strlen(payload_data);
+
+  size_t eth_len = build_eth_header(frame, ETH_P_IP);
+  size_t ip_len =
+      build_ipv4_header(frame + eth_len, 5, 20 + 20 + payload_len, IPPROTO_TCP,
+                        0, "192.168.1.100", "10.0.0.1");
+  size_t tcp_len =
+      build_tcp_header(frame + eth_len + ip_len, 12345, 80, 100000, 5);
+  memcpy(frame + eth_len + ip_len + tcp_len, payload_data, payload_len);
+  size_t total_frame_len = eth_len + ip_len + tcp_len + payload_len;
+
+  struct packet pkt;
+  TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
+  TEST_ASSERT_EQUAL_INT(4, pkt.ip_version);
+  TEST_ASSERT_EQUAL_STRING("192.168.1.100", pkt.src_ip);
+  TEST_ASSERT_EQUAL_STRING("10.0.0.1", pkt.dst_ip);
+  TEST_ASSERT_EQUAL_UINT16(12345, pkt.src_port);
+  TEST_ASSERT_EQUAL_UINT16(80, pkt.dst_port);
+  TEST_ASSERT_EQUAL_UINT32(100000, pkt.sequence_number);
+  TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
+  TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+
+  struct in_addr expected_src, expected_dst;
+  inet_pton(AF_INET, "192.168.1.100", &expected_src);
+  inet_pton(AF_INET, "10.0.0.1", &expected_dst);
+  TEST_ASSERT_EQUAL_UINT32(expected_src.s_addr, pkt.src_ip_bin.v4);
+  TEST_ASSERT_EQUAL_UINT32(expected_dst.s_addr, pkt.dst_ip_bin.v4);
+}
+
+static void test_parse_packet_ipv4_ethernet_padding(void) {
+  uint8_t frame[512];
+  memset(frame, 0xAA, sizeof(frame));
+
+  const char *payload_data = "Test";
+  size_t payload_len = strlen(payload_data);
+
+  size_t eth_len = build_eth_header(frame, ETH_P_IP);
+  size_t ip_len =
+      build_ipv4_header(frame + eth_len, 5, 20 + 20 + payload_len, IPPROTO_TCP,
+                        0, "192.168.1.1", "192.168.1.2");
+  size_t tcp_len =
+      build_tcp_header(frame + eth_len + ip_len, 1111, 2222, 50, 5);
+  memcpy(frame + eth_len + ip_len + tcp_len, payload_data, payload_len);
+
+  struct packet pkt;
+  TEST_ASSERT_TRUE(parse_packet(frame, 128, &pkt));
+  TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
+  TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+}
+
+static void test_parse_packet_ipv4_options(void) {
+  uint8_t frame[512];
+  const char *payload_data = "With IPv4 Options";
+  size_t payload_len = strlen(payload_data);
+
+  size_t eth_len = build_eth_header(frame, ETH_P_IP);
+  size_t ip_len = build_ipv4_header(frame + eth_len, 6, 24 + 20 + payload_len,
+                                    IPPROTO_TCP, 0, "172.16.0.1", "172.16.0.2");
+  memset(frame + eth_len + 20, 0x01, 4);
+
+  size_t tcp_len =
+      build_tcp_header(frame + eth_len + ip_len, 3333, 4444, 999, 5);
+  memcpy(frame + eth_len + ip_len + tcp_len, payload_data, payload_len);
+  size_t total_frame_len = eth_len + ip_len + tcp_len + payload_len;
+
+  struct packet pkt;
+  TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
+  TEST_ASSERT_EQUAL_STRING("172.16.0.1", pkt.src_ip);
+  TEST_ASSERT_EQUAL_STRING("172.16.0.2", pkt.dst_ip);
+  TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
+  TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+}
+
+static void test_parse_packet_vlan_single_tag(void) {
+  uint8_t frame[512];
+  const char *payload_data = "VLAN Tagged";
+  size_t payload_len = strlen(payload_data);
+
+  size_t eth_vlan_len = build_vlan_frame(frame, 100, ETH_P_IP);
+  size_t ip_len =
+      build_ipv4_header(frame + eth_vlan_len, 5, 20 + 20 + payload_len,
+                        IPPROTO_TCP, 0, "10.10.10.1", "10.10.10.2");
+  size_t tcp_len =
+      build_tcp_header(frame + eth_vlan_len + ip_len, 8080, 80, 500, 5);
+  memcpy(frame + eth_vlan_len + ip_len + tcp_len, payload_data, payload_len);
+  size_t total_frame_len = eth_vlan_len + ip_len + tcp_len + payload_len;
+
+  struct packet pkt;
+  TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
+  TEST_ASSERT_EQUAL_INT(4, pkt.ip_version);
+  TEST_ASSERT_EQUAL_STRING("10.10.10.1", pkt.src_ip);
+  TEST_ASSERT_EQUAL_STRING("10.10.10.2", pkt.dst_ip);
+  TEST_ASSERT_EQUAL_UINT16(8080, pkt.src_port);
+  TEST_ASSERT_EQUAL_UINT16(80, pkt.dst_port);
+  TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
+  TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+}
+
+static void test_parse_packet_vlan_double_tag(void) {
+  uint8_t frame[512];
+  const char *payload_data = "QinQ Stacked VLAN";
+  size_t payload_len = strlen(payload_data);
+
+  size_t qinq_len = build_qinq_frame(frame, 200, 100, ETH_P_IP);
+  size_t ip_len =
+      build_ipv4_header(frame + qinq_len, 5, 20 + 20 + payload_len, IPPROTO_TCP,
+                        0, "10.20.30.40", "10.20.30.50");
+  size_t tcp_len =
+      build_tcp_header(frame + qinq_len + ip_len, 9000, 443, 777, 5);
+  memcpy(frame + qinq_len + ip_len + tcp_len, payload_data, payload_len);
+  size_t total_frame_len = qinq_len + ip_len + tcp_len + payload_len;
+
+  struct packet pkt;
+  TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
+  TEST_ASSERT_EQUAL_INT(4, pkt.ip_version);
+  TEST_ASSERT_EQUAL_STRING("10.20.30.40", pkt.src_ip);
+  TEST_ASSERT_EQUAL_STRING("10.20.30.50", pkt.dst_ip);
+  TEST_ASSERT_EQUAL_UINT16(9000, pkt.src_port);
+  TEST_ASSERT_EQUAL_UINT16(443, pkt.dst_port);
+  TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
+  TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+}
+
+static void test_parse_packet_ipv6_valid_tcp(void) {
+  uint8_t frame[512];
+  const char *payload_data = "IPv6 TCP Payload";
+  size_t payload_len = strlen(payload_data);
+
+  size_t eth_len = build_eth_header(frame, ETH_P_IPV6);
+  size_t ip6_len = build_ipv6_header(frame + eth_len, 20 + payload_len,
+                                     IPPROTO_TCP, "2001:db8::1", "2001:db8::2");
+  size_t tcp_len =
+      build_tcp_header(frame + eth_len + ip6_len, 54321, 443, 50000, 5);
+  memcpy(frame + eth_len + ip6_len + tcp_len, payload_data, payload_len);
+  size_t total_frame_len = eth_len + ip6_len + tcp_len + payload_len;
+
+  struct packet pkt;
+  TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
+  TEST_ASSERT_EQUAL_INT(6, pkt.ip_version);
+  TEST_ASSERT_EQUAL_STRING("2001:db8::1", pkt.src_ip);
+  TEST_ASSERT_EQUAL_STRING("2001:db8::2", pkt.dst_ip);
+  TEST_ASSERT_EQUAL_UINT16(54321, pkt.src_port);
+  TEST_ASSERT_EQUAL_UINT16(443, pkt.dst_port);
+  TEST_ASSERT_EQUAL_UINT32(50000, pkt.sequence_number);
+  TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
+  TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+
+  struct in6_addr expected_src6, expected_dst6;
+  inet_pton(AF_INET6, "2001:db8::1", &expected_src6);
+  inet_pton(AF_INET6, "2001:db8::2", &expected_dst6);
+  TEST_ASSERT_EQUAL_MEMORY(&expected_src6, pkt.src_ip_bin.v6, 16);
+  TEST_ASSERT_EQUAL_MEMORY(&expected_dst6, pkt.dst_ip_bin.v6, 16);
+}
+
+static void test_parse_packet_ipv6_extension_header(void) {
+  uint8_t frame[512];
+  const char *payload_data = "IPv6 HopOpts Payload";
+  size_t payload_len = strlen(payload_data);
+
+  size_t eth_len = build_eth_header(frame, ETH_P_IPV6);
+  size_t ip6_len =
+      build_ipv6_header(frame + eth_len, 8 + 20 + payload_len, IPPROTO_HOPOPTS,
+                        "2001:db8::10", "2001:db8::20");
+
+  uint8_t *ext = frame + eth_len + ip6_len;
+  memset(ext, 0, 8);
+  ext[0] = IPPROTO_TCP;
+  ext[1] = 0;
+
+  size_t ext_len = 8;
+  size_t tcp_len =
+      build_tcp_header(frame + eth_len + ip6_len + ext_len, 8080, 80, 1234, 5);
+  memcpy(frame + eth_len + ip6_len + ext_len + tcp_len, payload_data,
+         payload_len);
+  size_t total_frame_len = eth_len + ip6_len + ext_len + tcp_len + payload_len;
+
+  struct packet pkt;
+  TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
+  TEST_ASSERT_EQUAL_INT(6, pkt.ip_version);
+  TEST_ASSERT_EQUAL_STRING("2001:db8::10", pkt.src_ip);
+  TEST_ASSERT_EQUAL_STRING("2001:db8::20", pkt.dst_ip);
+  TEST_ASSERT_EQUAL_UINT16(8080, pkt.src_port);
+  TEST_ASSERT_EQUAL_UINT16(80, pkt.dst_port);
+  TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
+  TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
+}
+
+static void test_parse_packet_truncated_frames(void) {
+  uint8_t frame[512] = {0};
+  struct packet pkt;
+
+  TEST_ASSERT_FALSE(parse_packet(frame, 0, &pkt));
+  TEST_ASSERT_FALSE(parse_packet(frame, 13, &pkt));
+
+  size_t eth_vlan_len = build_vlan_frame(frame, 100, ETH_P_IP);
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_vlan_len - 1, &pkt));
+
+  size_t eth_len = build_eth_header(frame, ETH_P_IP);
+  build_ipv4_header(frame + eth_len, 5, 20 + 20 + 5, IPPROTO_TCP, 0, "1.1.1.1",
+                    "2.2.2.2");
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + 10, &pkt));
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + 20 + 10, &pkt));
+
+  size_t eth6_len = build_eth_header(frame, ETH_P_IPV6);
+  build_ipv6_header(frame + eth6_len, 20 + 5, IPPROTO_TCP, "::1", "::2");
+  TEST_ASSERT_FALSE(parse_packet(frame, eth6_len + 20, &pkt));
+}
+
+static void test_parse_packet_non_tcp(void) {
+  uint8_t frame[512];
+  struct packet pkt;
+
+  size_t eth_len = build_eth_header(frame, ETH_P_IP);
+  size_t ip_len = build_ipv4_header(frame + eth_len, 5, 20 + 8, IPPROTO_UDP, 0,
+                                    "1.1.1.1", "2.2.2.2");
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + ip_len + 8, &pkt));
+
+  ip_len = build_ipv4_header(frame + eth_len, 5, 20 + 8, IPPROTO_ICMP, 0,
+                             "1.1.1.1", "2.2.2.2");
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + ip_len + 8, &pkt));
+
+  size_t eth6_len = build_eth_header(frame, ETH_P_IPV6);
+  size_t ip6_len =
+      build_ipv6_header(frame + eth6_len, 8, IPPROTO_UDP, "::1", "::2");
+  TEST_ASSERT_FALSE(parse_packet(frame, eth6_len + ip6_len + 8, &pkt));
+}
+
+static void test_parse_packet_non_ip_ethertypes(void) {
+  uint8_t frame[512];
+  struct packet pkt;
+
+  size_t eth_len = build_eth_header(frame, ETH_P_ARP);
+  memset(frame + eth_len, 0, 28);
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + 28, &pkt));
+
+  eth_len = build_eth_header(frame, 0x1234);
+  memset(frame + eth_len, 0, 30);
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + 30, &pkt));
+}
+
+static void test_parse_packet_ipv4_fragments(void) {
+  uint8_t frame[512];
+  struct packet pkt;
+
+  size_t eth_len = build_eth_header(frame, ETH_P_IP);
+  size_t ip_len = build_ipv4_header(frame + eth_len, 5, 20 + 20, IPPROTO_TCP,
+                                    0x2000, "1.1.1.1", "2.2.2.2");
+  build_tcp_header(frame + eth_len + ip_len, 100, 200, 1, 5);
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + ip_len + 20, &pkt));
+
+  ip_len = build_ipv4_header(frame + eth_len, 5, 20 + 20, IPPROTO_TCP, 100,
+                             "1.1.1.1", "2.2.2.2");
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + ip_len + 20, &pkt));
+}
+
+static void test_parse_packet_invalid_header_fields(void) {
+  uint8_t frame[512];
+  struct packet pkt;
+
+  size_t eth_len = build_eth_header(frame, ETH_P_IP);
+  size_t ip_len = build_ipv4_header(frame + eth_len, 5, 20 + 20, IPPROTO_TCP, 0,
+                                    "1.1.1.1", "2.2.2.2");
+  build_tcp_header(frame + eth_len + ip_len, 100, 200, 1, 5);
+
+  frame[eth_len] = 0x55;
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + ip_len + 20, &pkt));
+
+  frame[eth_len] = 0x44;
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + ip_len + 20, &pkt));
+
+  frame[eth_len] = 0x45;
+  frame[eth_len + ip_len + 12] = 0x40;
+  TEST_ASSERT_FALSE(parse_packet(frame, eth_len + ip_len + 20, &pkt));
 }
 
 int main(void) {
@@ -268,6 +624,17 @@ int main(void) {
   RUN_TEST(test_http_host);
   RUN_TEST(test_tls_sni_hex);
   RUN_TEST(test_tls_sni_hex_stream);
-  RUN_TEST(test_process_frame);
+  RUN_TEST(test_parse_packet_ipv4_valid_tcp);
+  RUN_TEST(test_parse_packet_ipv4_ethernet_padding);
+  RUN_TEST(test_parse_packet_ipv4_options);
+  RUN_TEST(test_parse_packet_vlan_single_tag);
+  RUN_TEST(test_parse_packet_vlan_double_tag);
+  RUN_TEST(test_parse_packet_ipv6_valid_tcp);
+  RUN_TEST(test_parse_packet_ipv6_extension_header);
+  RUN_TEST(test_parse_packet_truncated_frames);
+  RUN_TEST(test_parse_packet_non_tcp);
+  RUN_TEST(test_parse_packet_non_ip_ethertypes);
+  RUN_TEST(test_parse_packet_ipv4_fragments);
+  RUN_TEST(test_parse_packet_invalid_header_fields);
   return UNITY_END();
 }

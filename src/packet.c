@@ -2,7 +2,7 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 
-void print_packet(struct packet_view *pkt) {
+void print_packet(struct packet *pkt) {
   if (pkt->ip_version == 4) {
     char src_ip[INET_ADDRSTRLEN];
     char dst_ip[INET_ADDRSTRLEN];
