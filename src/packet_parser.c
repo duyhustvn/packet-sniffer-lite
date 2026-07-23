@@ -27,9 +27,7 @@ static bool read_u16(const uint8_t *buf, size_t len, size_t off,
   uint16_t tmp;
   memcpy(&tmp, buf + off, sizeof(tmp));
 
-  // Packet fields are stored in network byte order (big-endian).
-  // Convert them to the host CPU's byte order before returning the value.
-  *out = ntohs(tmp);
+  *out = tmp;
   return true;
 }
 
@@ -41,7 +39,7 @@ static bool read_u32(const uint8_t *buf, size_t len, size_t off,
 
   uint32_t tmp;
   memcpy(&tmp, buf + off, sizeof(tmp));
-  *out = ntohl(tmp);
+  *out = tmp;
   return true;
 }
 
@@ -291,10 +289,12 @@ bool parse_packet(const uint8_t *frame, size_t frame_len, struct packet *out) {
   //
   // Keep skipping VLAN tags until ether_type is the real payload type, such
   // as IPv4 or IPv6, not another VLAN TPID.
-  while (ether_type == ETH_P_8021Q || ether_type == ETH_P_8021AD) {
+  uint16_t host_ether_type = ntohs(ether_type);
+  while (host_ether_type == ETH_P_8021Q || host_ether_type == ETH_P_8021AD) {
     if (!read_u16(frame, frame_len, off + 2, &ether_type)) {
       return false;
     }
+    host_ether_type = ntohs(ether_type);
     off += VLAN_TAG_HLEN;
     if (off > frame_len) {
       return false;
@@ -302,10 +302,10 @@ bool parse_packet(const uint8_t *frame, size_t frame_len, struct packet *out) {
   }
 
   bool parse_ip_result = false;
-  if (ether_type == ETH_P_IP) {
+  if (host_ether_type == ETH_P_IP) {
     parse_ip_result = parse_ipv4(frame + off, frame_len - off, out);
   }
-  if (ether_type == ETH_P_IPV6) {
+  if (host_ether_type == ETH_P_IPV6) {
     parse_ip_result = parse_ipv6(frame + off, frame_len - off, out);
   }
 

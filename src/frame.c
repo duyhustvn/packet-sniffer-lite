@@ -5,6 +5,8 @@
 #include "packet_parser.h"
 #include "tls_sni_parser.h"
 
+#include <arpa/inet.h>
+
 void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
   struct packet pkt;
   if (!parse_packet(buffer, buffer_len, &pkt) || pkt.payload_len == 0) {
@@ -42,10 +44,11 @@ void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
   char host[HOST_MAX_LEN];
   const char *kind = NULL;
 
-  if ((pkt.dst_port == 80 || pkt.src_port == 80) && tls_payload_complete &&
+  if ((ntohs(pkt.dst_port) == 80 || ntohs(pkt.src_port) == 80) &&
+      tls_payload_complete &&
       extract_http_host(pkt.payload, pkt.payload_len, host, sizeof(host))) {
     kind = "HTTP";
-  } else if ((pkt.dst_port == 443 || pkt.src_port == 443) &&
+  } else if ((ntohs(pkt.dst_port) == 443 || ntohs(pkt.src_port) == 443) &&
              tls_payload_complete &&
              extract_tls_sni(pkt.payload, pkt.payload_len, host,
                              sizeof(host))) {

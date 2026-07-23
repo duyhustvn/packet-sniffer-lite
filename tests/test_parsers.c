@@ -358,9 +358,9 @@ static void test_parse_packet_ipv4_valid_tcp(void) {
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
   TEST_ASSERT_EQUAL_INT(4, pkt.ip_version);
-  TEST_ASSERT_EQUAL_UINT16(12345, pkt.src_port);
-  TEST_ASSERT_EQUAL_UINT16(80, pkt.dst_port);
-  TEST_ASSERT_EQUAL_UINT32(100000, pkt.sequence_number);
+  TEST_ASSERT_EQUAL_UINT16(htons(12345), pkt.src_port);
+  TEST_ASSERT_EQUAL_UINT16(htons(80), pkt.dst_port);
+  TEST_ASSERT_EQUAL_UINT32(htonl(100000), pkt.sequence_number);
   TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
   TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
 
@@ -436,8 +436,8 @@ static void test_parse_packet_vlan_single_tag(void) {
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
   TEST_ASSERT_EQUAL_INT(4, pkt.ip_version);
-  TEST_ASSERT_EQUAL_UINT16(8080, pkt.src_port);
-  TEST_ASSERT_EQUAL_UINT16(80, pkt.dst_port);
+  TEST_ASSERT_EQUAL_UINT16(htons(8080), pkt.src_port);
+  TEST_ASSERT_EQUAL_UINT16(htons(80), pkt.dst_port);
   TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
   TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
 
@@ -465,8 +465,8 @@ static void test_parse_packet_vlan_double_tag(void) {
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
   TEST_ASSERT_EQUAL_INT(4, pkt.ip_version);
-  TEST_ASSERT_EQUAL_UINT16(9000, pkt.src_port);
-  TEST_ASSERT_EQUAL_UINT16(443, pkt.dst_port);
+  TEST_ASSERT_EQUAL_UINT16(htons(9000), pkt.src_port);
+  TEST_ASSERT_EQUAL_UINT16(htons(443), pkt.dst_port);
   TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
   TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
 
@@ -493,9 +493,9 @@ static void test_parse_packet_ipv6_valid_tcp(void) {
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
   TEST_ASSERT_EQUAL_INT(6, pkt.ip_version);
-  TEST_ASSERT_EQUAL_UINT16(54321, pkt.src_port);
-  TEST_ASSERT_EQUAL_UINT16(443, pkt.dst_port);
-  TEST_ASSERT_EQUAL_UINT32(50000, pkt.sequence_number);
+  TEST_ASSERT_EQUAL_UINT16(htons(54321), pkt.src_port);
+  TEST_ASSERT_EQUAL_UINT16(htons(443), pkt.dst_port);
+  TEST_ASSERT_EQUAL_UINT32(htonl(50000), pkt.sequence_number);
   TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
   TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
 
@@ -531,8 +531,8 @@ static void test_parse_packet_ipv6_extension_header(void) {
   struct packet pkt;
   TEST_ASSERT_TRUE(parse_packet(frame, total_frame_len, &pkt));
   TEST_ASSERT_EQUAL_INT(6, pkt.ip_version);
-  TEST_ASSERT_EQUAL_UINT16(8080, pkt.src_port);
-  TEST_ASSERT_EQUAL_UINT16(80, pkt.dst_port);
+  TEST_ASSERT_EQUAL_UINT16(htons(8080), pkt.src_port);
+  TEST_ASSERT_EQUAL_UINT16(htons(80), pkt.dst_port);
   TEST_ASSERT_EQUAL_UINT(payload_len, pkt.payload_len);
   TEST_ASSERT_EQUAL_MEMORY(payload_data, pkt.payload, payload_len);
 
