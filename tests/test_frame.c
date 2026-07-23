@@ -165,8 +165,8 @@ static void test_process_frame_ipv4_http_flow_creation(void) {
 static void test_process_frame_tls_flow_completion(void) {
   uint8_t frame[512];
   uint8_t tls_payload[] = {
-      0x16, 0x03, 0x01, 0x00, 0x05,
-      'H',  'E',  'L',  'L',  'O'};
+      0x16, 0x03, 0x01, 0x00, 0x0a,
+      0x05, 0x06, 0x07, 0x08, 0x09};
   size_t payload_len = sizeof(tls_payload);
 
   size_t eth_len = build_eth_header(frame, ETH_P_IP);
@@ -193,6 +193,7 @@ static void test_process_frame_tls_flow_completion(void) {
 
   Flow *f = lookup(&key, flows);
   TEST_ASSERT_NOT_NULL(f);
+  TEST_ASSERT_TRUE(f->complete);
 
   process_frame(frame, total_frame_len, &flows);
 

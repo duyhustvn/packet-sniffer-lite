@@ -45,13 +45,12 @@ void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
   const char *kind = NULL;
 
   if ((ntohs(pkt.dst_port) == 80 || ntohs(pkt.src_port) == 80) &&
-      tls_payload_complete &&
-      extract_http_host(pkt.payload, pkt.payload_len, host, sizeof(host))) {
+      tls_payload_complete) {
+    extract_http_host(pkt.payload, pkt.payload_len, host, sizeof(host));
     kind = "HTTP";
   } else if ((ntohs(pkt.dst_port) == 443 || ntohs(pkt.src_port) == 443) &&
-             tls_payload_complete &&
-             extract_tls_sni(pkt.payload, pkt.payload_len, host,
-                             sizeof(host))) {
+             tls_payload_complete) {
+    extract_tls_sni(pkt.payload, pkt.payload_len, host, sizeof(host));
     kind = "TLS-SNI";
   }
 
