@@ -12,6 +12,7 @@ LDFLAGS ?=
 BIN := packet-sniffer-lite
 TEST_BIN := test_parsers
 TEST_FLOW_BIN := test_flow
+TEST_FRAME_BIN := test_frame
 BUILD_DIR := build/make
 OBJ_DIR := $(BUILD_DIR)/obj
 SRC := \
@@ -38,9 +39,20 @@ TEST_FLOW_OBJ := \
 	$(OBJ_DIR)/tests/unity/unity.o \
 	$(OBJ_DIR)/src/flow.o \
 	$(OBJ_DIR)/src/util.o
+TEST_FRAME_OBJ := \
+	$(OBJ_DIR)/tests/test_frame.o \
+	$(OBJ_DIR)/tests/unity/unity.o \
+	$(OBJ_DIR)/src/http_parser.o \
+	$(OBJ_DIR)/src/tls_sni_parser.o \
+	$(OBJ_DIR)/src/packet_parser.o \
+	$(OBJ_DIR)/src/packet.o \
+	$(OBJ_DIR)/src/frame.o \
+	$(OBJ_DIR)/src/flow.o \
+	$(OBJ_DIR)/src/util.o
 BIN_PATH := $(BUILD_DIR)/$(BIN)
 TEST_BIN_PATH := $(BUILD_DIR)/$(TEST_BIN)
 TEST_FLOW_BIN_PATH := $(BUILD_DIR)/$(TEST_FLOW_BIN)
+TEST_FRAME_BIN_PATH := $(BUILD_DIR)/$(TEST_FRAME_BIN)
 
 .PHONY: all clean test
 
@@ -58,13 +70,18 @@ $(TEST_FLOW_BIN_PATH): $(TEST_FLOW_OBJ)
 	@mkdir -p $(@D)
 	$(CC) $(TEST_FLOW_OBJ) $(LDFLAGS) -o $@
 
+$(TEST_FRAME_BIN_PATH): $(TEST_FRAME_OBJ)
+	@mkdir -p $(@D)
+	$(CC) $(TEST_FRAME_OBJ) $(LDFLAGS) -o $@
+
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-test: $(TEST_BIN_PATH) $(TEST_FLOW_BIN_PATH)
+test: $(TEST_BIN_PATH) $(TEST_FLOW_BIN_PATH) $(TEST_FRAME_BIN_PATH)
 	./$(TEST_BIN_PATH)
 	./$(TEST_FLOW_BIN_PATH)
+	./$(TEST_FRAME_BIN_PATH)
 
 clean:
 	$(RM) -r $(BUILD_DIR)

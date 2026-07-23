@@ -98,7 +98,28 @@ target_compile_options(test_flow
         -Wpedantic
 )
 
+add_executable(test_frame
+    tests/test_frame.c
+    tests/unity/unity.c
+)
+target_include_directories(test_frame
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/unity
+)
+target_link_libraries(test_frame
+    PRIVATE
+        sniffer_parsers
+)
+target_compile_options(test_frame
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+)
+
 add_test(NAME parsers COMMAND test_parsers)
 add_test(NAME flow COMMAND test_flow)
+add_test(NAME frame COMMAND test_frame)
 
 install(TARGETS packet-sniffer-lite RUNTIME DESTINATION bin)
