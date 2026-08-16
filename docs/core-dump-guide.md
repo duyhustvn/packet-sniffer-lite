@@ -109,20 +109,21 @@ Trong đó các ký tự định dạng có ý nghĩa:
 
 ---
 
-## Bước 3: Biên dịch chương trình với thông tin Debug
+## Bước 3: Biên dịch chương trình với thông tin Debug (`-g`)
 
-Để file core dump có ích khi phân tích, chương trình của bạn phải được biên dịch kèm theo **ký hiệu gỡ lỗi (debug symbols)**.
+Để file core dump có ích khi phân tích bằng GDB, chương trình của bạn phải được biên dịch kèm theo **ký hiệu gỡ lỗi (debug symbols - cờ `-g`)**.
 
-- **Biên dịch trực tiếp bằng GCC/Clang**: Thêm cờ `-g` và khuyến khích tắt tối ưu hóa bằng `-O0`:
+- **Sử dụng CMake (Debug mode - khuyên dùng khi dev/debug)**:
+  Biên dịch kèm cờ `-g` và macro `DEBUG`:
   ```bash
-  gcc -g -O0 main.c -o packet-sniffer-lite
-  ```
-- **Sử dụng Makefile**: Đảm bảo cờ biên dịch `CFLAGS` chứa `-g -O0` (ví dụ chạy: `DEBUG=1 make`).
-- **Sử dụng CMake**: Build ở chế độ Debug:
-  Để đảm bảo các cờ debug được cấu hình chính xác và không bị ảnh hưởng bởi cache cấu hình cũ của CMake, khuyến cáo bạn nên xóa thư mục build cũ và cấu hình tường minh:
-  ```bash
-  rm -rf build
   cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+  cmake --build build
+  ```
+
+- **Sử dụng CMake (RelWithDebInfo mode - tối ưu hiệu năng kèm debug symbols)**:
+  Nếu muốn giữ lại cờ `-g` để debug core dump trong môi trường sản xuất/tối ưu hiệu năng (`-O2 -g`):
+  ```bash
+  cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
   cmake --build build
   ```
 

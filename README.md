@@ -20,10 +20,39 @@ client sends it. Encrypted ClientHello can hide this value.
 
 ## Build
 
+### Default / Release Build (Non-Debug)
+
 ```sh
-cmake -S . -B build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
+
+### Debug Build (Enabled Debug with `-g`)
+
+Building with Debug mode defines the `DEBUG` compile flag, disables compiler optimizations (`-O0`), and embeds debug symbols (`-g`):
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+```
+
+Alternatively, set the `DEBUG=1` environment variable when configuring CMake:
+
+```sh
+DEBUG=1 cmake -S . -B build
+cmake --build build
+```
+
+### Build with Debug Symbols (`-g`) for GDB / Core Dump Analysis
+
+If you want compiler optimizations (`-O2`) while keeping `-g` debug symbols for analyzing Core Dumps with GDB:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build
+```
+
+*(See [Core Dump Guide](docs/core-dump-guide.md) for step-by-step instructions on enabling ulimit, capturing core dumps, and running `gdb ./build/packet-sniffer-lite core`)*
 
 Run parser tests:
 
