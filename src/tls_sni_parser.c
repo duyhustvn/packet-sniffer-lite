@@ -85,6 +85,11 @@ static bool copy_hostname(const uint8_t *buf, size_t len, size_t off,
 // tai co the chua du record_len va ham cung se tra ve false.
 bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host,
                      size_t host_len) {
+#ifdef DEBUG
+  // printf("Extract tls sni: payload_len: %ld  host_len: %ld \n", payload_len,
+  // host_len);
+#endif
+
   if (payload_len < 5 || host_len == 0) {
     return false;
   }
@@ -94,7 +99,10 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host,
   uint8_t content_type;
   if (!get_u8(payload, payload_len, &off, &content_type) ||
       content_type != 22) {
-    // content_type: 22 means handshake
+// content_type: 22 means handshake
+#ifdef DEBUG
+    // printf("content_type: %d \n", content_type);
+#endif
     return false;
   }
 
@@ -158,12 +166,21 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host,
     return false;
   }
 
+#ifdef DEBUG
+  printf("cipher_suites_len: %d payload_len: %ld \n", cipher_suites_len,
+         payload_len);
+#endif
+
   // Skip variable-length compression_methods list.
   uint8_t compression_methods_len;
   if (!get_u8(payload, handshake_end, &off, &compression_methods_len) ||
       !skip_bytes(handshake_end, &off, compression_methods_len)) {
     return false;
   }
+
+#ifdef DEBUG
+  printf("Process extensions \n");
+#endif
 
   // The SNI is stored inside ClientHello extensions.
   uint16_t extensions_len;
@@ -209,7 +226,13 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host,
           return false;
         }
         if (name_type == 0) {
-          return copy_hostname(payload, name_len, sni_off, host, host_len);
+          if (copy_hostname(payload, name_len, sni_off, host, host_len)) {
+#ifdef DEBUG
+            printf("Host: %s \n", host);
+#endif
+            return true;
+          }
+          return false;
         }
         sni_off += name_len;
       }

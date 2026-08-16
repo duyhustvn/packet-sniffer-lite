@@ -258,7 +258,7 @@ static bool parse_ipv6(const uint8_t *packet, size_t packet_len,
 // real EtherType 0x0800 roi moi parse IPv4.
 bool parse_packet(const uint8_t *frame, size_t frame_len, struct packet *out) {
 #ifdef DEBUG
-  printf("frame: %s \n", frame);
+  // printf("frame: %s \n", frame);
 #endif
 
   memset(out, 0, sizeof(*out));

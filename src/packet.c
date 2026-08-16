@@ -8,14 +8,16 @@ void print_packet(struct packet *pkt) {
     char dst_ip[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &pkt->src_ip_bin.v4, src_ip, sizeof(src_ip));
     inet_ntop(AF_INET, &pkt->dst_ip_bin.v4, dst_ip, sizeof(dst_ip));
-    printf("IP %s:%u -> %s:%u seq_num=%u\n", src_ip, ntohs(pkt->src_port),
-           dst_ip, ntohs(pkt->dst_port), ntohl(pkt->sequence_number));
+    printf("IP %s:%u -> %s:%u seq_num=%u version=%d \n", src_ip,
+           ntohs(pkt->src_port), dst_ip, ntohs(pkt->dst_port),
+           ntohl(pkt->sequence_number), pkt->ip_version);
   } else if (pkt->ip_version == 6) {
     char src_ip[INET6_ADDRSTRLEN];
     char dst_ip[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET6, pkt->src_ip_bin.v6, src_ip, sizeof(src_ip));
     inet_ntop(AF_INET6, pkt->dst_ip_bin.v6, dst_ip, sizeof(dst_ip));
-    printf("IP %s:%u -> %s:%u seq_num=%u\n", src_ip, ntohs(pkt->src_port),
-           dst_ip, ntohs(pkt->dst_port), ntohl(pkt->sequence_number));
+    printf("IP %s:%u -> %s:%u seq_num=%u version=%d \n", src_ip,
+           ntohs(pkt->src_port), dst_ip, ntohs(pkt->dst_port),
+           ntohl(pkt->sequence_number), pkt->ip_version);
   }
 }

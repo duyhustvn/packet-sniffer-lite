@@ -67,6 +67,11 @@ void upsert(FlowKey *key, Flow **flows, uint8_t *data, size_t data_len,
       // 5 bytes TLS record headers + độ dài payload của record
       f->expected_payload_len = 5 + payload_len;
 
+#ifdef DEBUG
+      printf("data_len: %ld expected_payload_len: %u \n", data_len,
+             f->expected_payload_len);
+#endif
+
       if (f->expected_payload_len == data_len) {
         f->complete = true;
       }
