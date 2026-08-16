@@ -17,6 +17,9 @@ client sends it. Encrypted ClientHello can hide this value.
 ## Docs
 
 - [TLS ClientHello SNI payload walkthrough](docs/tls-sni-payload.md)
+- [Core Dump Analysis Guide](docs/core-dump-guide.md)
+- [Valgrind Memory Leak Guide](docs/valgrind-memleak-guide.md)
+- [Network Byte Order Guide](docs/network-byte-order.md)
 
 ## Build
 
