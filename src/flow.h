@@ -39,7 +39,6 @@ void construct_key(FlowKey *key, uint8_t ip_version, uint32_t src_ip,
 
 Flow *lookup(FlowKey *key, Flow *flows);
 
-void upsert(FlowKey *key, Flow **flows, uint8_t *data, size_t data_len,
-            uint32_t sequence_number);
+void upsert(FlowKey *key, Flow **flows, Flow *f);
 
 #endif // FLOW_H

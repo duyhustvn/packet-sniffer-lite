@@ -1,6 +1,5 @@
 #include "flow.h"
 #include "common.h"
-#include "util.h"
 
 void print_key(FlowKey *key) {
   printf("key: %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u\n", key->src_ip >> 24,
@@ -28,55 +27,9 @@ Flow *lookup(FlowKey *key, Flow *flows) {
   return f;
 }
 
-void upsert(FlowKey *key, Flow **flows, uint8_t *data, size_t data_len,
-            uint32_t sequence_number) {
-  Flow *f = lookup(key, *flows);
-  if (f != NULL) {
-    // Kiểm tra xem có đúng sequence number
-    if (f->next_seq != sequence_number) {
-      return;
-    }
-
-    // append data to buffer
-    memcpy(f->buffer + f->buffer_len, data, data_len);
-    f->buffer_len += data_len;
-    f->next_seq = sequence_number + data_len;
-    f->updated_at_ms = now_ms();
-
-    if (f->expected_payload_len == f->buffer_len) {
-      f->complete = true;
-      return;
-    }
-  } else {
-    // insert new flow
-    f = (Flow *)malloc(sizeof(Flow));
-    if (f == NULL) {
-      return;
-    }
-    memset(f, 0, sizeof(Flow));
+void upsert(FlowKey *key, Flow **flows, Flow *f) {
+  if (key != NULL) {
     memcpy(&f->key, key, sizeof(FlowKey));
-    memcpy(f->buffer, data, data_len);
-    f->buffer_len = data_len;
-    f->created_at_ms = now_ms();
-    f->updated_at_ms = now_ms();
-    f->next_seq = sequence_number + data_len;
-
-    // Check if payload has TLS payload length
-    if (data_len >= 5 && data[0] == 0x16) {
-      uint16_t payload_len = (data[3] << 8) | data[4];
-      // 5 bytes TLS record headers + độ dài payload của record
-      f->expected_payload_len = 5 + payload_len;
-
-#ifdef DEBUG
-      printf("data_len: %ld expected_payload_len: %u \n", data_len,
-             f->expected_payload_len);
-#endif
-
-      if (f->expected_payload_len == data_len) {
-        f->complete = true;
-      }
-    }
-
-    HASH_ADD(hh, *flows, key, sizeof(FlowKey), f);
   }
+  HASH_ADD(hh, *flows, key, sizeof(FlowKey), f);
 }
