@@ -14,7 +14,7 @@ void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
     return;
   }
 
-  bool tls_payload_complete = false;
+  // bool tls_payload_complete = false;
   FlowKey key;
   Flow *flow = NULL;
   if (pkt.ip_version == 4) {
@@ -24,7 +24,7 @@ void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
     flow = lookup(&key, *flows);
     if (flow != NULL) {
       if (flow->complete) {
-        tls_payload_complete = true;
+        // tls_payload_complete = true;
       } else {
         // Kiểm tra xem có đúng sequence number
         if (flow->next_seq != pkt.sequence_number) {
@@ -66,8 +66,8 @@ void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
         flow->expected_payload_len = 5 + payload_len;
 
 #ifdef DEBUG
-        printf("data_len: %ld expected_payload_len: %u \n", data_len,
-               flow->expected_payload_len);
+        // printf("data_len: %ld expected_payload_len: %u \n", data_len,
+        // flow->expected_payload_len);
 #endif
 
         if (flow->expected_payload_len == data_len) {
@@ -99,13 +99,13 @@ void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
   }
 
   if (kind != NULL) {
-    printf("***********************************************\n\n");
+    printf("***********************************************\n");
 #ifdef DEBUG
     // print_key(&key);
     print_packet(&pkt);
 #endif
     printf("host=%s\n", host);
-    printf("***********************************************\n");
+    printf("***********************************************\n\n");
     fflush(stdout);
   }
 }

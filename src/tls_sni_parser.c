@@ -167,8 +167,8 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host,
   }
 
 #ifdef DEBUG
-  printf("cipher_suites_len: %d payload_len: %ld \n", cipher_suites_len,
-         payload_len);
+  // printf("cipher_suites_len: %d payload_len: %ld \n", cipher_suites_len,
+  // payload_len);
 #endif
 
   // Skip variable-length compression_methods list.
@@ -179,7 +179,7 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host,
   }
 
 #ifdef DEBUG
-  printf("Process extensions \n");
+  // printf("Process extensions \n");
 #endif
 
   // The SNI is stored inside ClientHello extensions.
@@ -193,7 +193,8 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host,
 
   size_t extensions_end = off + extensions_len;
   while (off + 4 <= extensions_end) {
-    // Each extension has a 4-byte header followed by ext_len bytes of data.
+    // Each extension has a 4-byte header followed by ext_len bytes of
+    // data.
     uint16_t ext_type;
     uint16_t ext_len;
     if (!get_u16(payload, extensions_end, &off, &ext_type) ||
@@ -228,7 +229,7 @@ bool extract_tls_sni(const uint8_t *payload, size_t payload_len, char *host,
         if (name_type == 0) {
           if (copy_hostname(payload, name_len, sni_off, host, host_len)) {
 #ifdef DEBUG
-            printf("Host: %s \n", host);
+            // printf("Host: %s \n", host);
 #endif
             return true;
           }
