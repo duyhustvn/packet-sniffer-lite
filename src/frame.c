@@ -17,7 +17,8 @@ void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
   // bool tls_payload_complete = false;
   FlowKey key;
   Flow *flow = NULL;
-  if (pkt.ip_version == 4) {
+  if (pkt.ip_version == 4 &&
+      (ntohs(pkt.dst_port) == 80 || ntohs(pkt.dst_port) == 443)) {
     construct_key(&key, pkt.ip_version, pkt.src_ip_bin.v4, pkt.dst_ip_bin.v4,
                   pkt.src_port, pkt.dst_port);
 
@@ -26,6 +27,11 @@ void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
       if (flow->complete) {
         // tls_payload_complete = true;
       } else {
+#ifdef DEBUG
+        printf(
+            "The package is segmented. Expected next seq: %u, pkt seq: %u \n",
+            flow->next_seq, pkt.sequence_number);
+#endif /* ifdef DEBUG */
         // Kiểm tra xem có đúng sequence number
         if (flow->next_seq != pkt.sequence_number) {
           return;
@@ -38,7 +44,14 @@ void process_frame(const uint8_t *buffer, size_t buffer_len, Flow **flows) {
         flow->updated_at_ms = now_ms();
 
         if (flow->expected_payload_len == flow->buffer_len) {
+#ifdef DEBUG
+          printf("The package is segmented and pair success");
+#endif /* ifdef DEBUG */
           flow->complete = true;
+        } else {
+#ifdef DEBUG
+          printf("The package is segmented and pair not success");
+#endif /* ifdef DEBUG */
         }
       }
     } else {
