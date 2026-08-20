@@ -136,6 +136,58 @@ HTTP 192.168.1.20:53122 -> 93.184.216.34:80 host=example.com
 TLS-SNI 192.168.1.20:53124 -> 93.184.216.34:443 host=example.com
 ```
 
+### Isolated Testing with `tcpreplay` and Virtual Ethernet (`veth`)
+
+When running on an active physical or Wi-Fi interface (such as `wlp1s0` or `eth0`), background traffic can make debugging difficult. You can set up an isolated virtual Ethernet pair (`veth`) to replay packets deterministically using `tcpreplay`.
+
+> **Note:** Do not use the loopback interface (`lo`) for testing, because Linux loopback frames lack standard 14-byte Ethernet headers (`ETH_HLEN`) required by the raw frame parser.
+
+#### 1. Create a `veth` pair
+
+```sh
+sudo ip link add veth0 type veth peer name veth1
+sudo ip link set veth0 up
+sudo ip link set veth1 up
+```
+
+#### 2. Capture or prepare a sample `.pcap` file
+
+Capture a few HTTP/HTTPS packets from an active interface (or use an existing pcap file):
+
+```sh
+sudo tcpdump -i wlp1s0 -w sample.pcap -c 20 "tcp port 80 or tcp port 443"
+```
+
+#### 3. Run the sniffer on `veth1`
+
+```sh
+sudo ./build/packet-sniffer-lite -i veth1
+```
+
+#### 4. Replay packets to `veth0` using `tcpreplay`
+
+In another terminal, send the captured packets to `veth0` (which immediately delivers them to `veth1`):
+
+```sh
+# Replay at original capture speed
+sudo tcpreplay -i veth0 sample.pcap
+
+# Replay slowly (e.g. 2 packets per second) for easier debugging
+sudo tcpreplay -i veth0 -p 2 sample.pcap
+
+# Replay in a loop
+sudo tcpreplay -i veth0 --loop=5 sample.pcap
+```
+
+#### 5. Clean up virtual interfaces
+
+When finished testing, remove the virtual link:
+
+```sh
+sudo ip link delete veth0
+```
+
+
 ## Learning Roadmap
 
 1. Start in `src/main.c` to see how `socket(AF_PACKET, SOCK_RAW, ...)` receives
